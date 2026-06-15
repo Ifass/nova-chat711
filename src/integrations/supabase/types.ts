@@ -14,136 +14,16 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_chats: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          response: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          response: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          response?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      friends: {
-        Row: {
-          created_at: string
-          id: string
-          receiver_id: string
-          sender_id: string
-          status: Database["public"]["Enums"]["friend_status"]
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          receiver_id: string
-          sender_id: string
-          status?: Database["public"]["Enums"]["friend_status"]
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          receiver_id?: string
-          sender_id?: string
-          status?: Database["public"]["Enums"]["friend_status"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          read_at: string | null
-          receiver_id: string
-          sender_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          receiver_id: string
-          sender_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          read_at?: string | null
-          receiver_id?: string
-          sender_id?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          display_name: string
-          email: string | null
-          id: string
-          last_seen: string
-          unique_code: string
-          username: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name: string
-          email?: string | null
-          id: string
-          last_seen?: string
-          unique_code: string
-          username: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string
-          email?: string | null
-          id?: string
-          last_seen?: string
-          unique_code?: string
-          username?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      generate_friend_code: { Args: never; Returns: string }
-      search_users: {
-        Args: { q: string }
-        Returns: {
-          avatar_url: string
-          display_name: string
-          id: string
-          unique_code: string
-          username: string
-        }[]
-      }
+      [_ in never]: never
     }
     Enums: {
-      friend_status: "pending" | "accepted" | "blocked"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -270,8 +150,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      friend_status: ["pending", "accepted", "blocked"],
-    },
+    Enums: {},
   },
 } as const
