@@ -147,6 +147,23 @@ function AuthPage() {
                                     "Enter your email and we'll send you a reset link"}
           </p>
 
+          {pendingEmail && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <p className="font-medium flex items-center gap-2"><Mail className="size-4" /> Confirm your email</p>
+              <p className="text-muted-foreground mt-1">
+                We sent a verification link to <span className="font-medium text-foreground">{pendingEmail}</span>. Click it to activate your account.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => resendConfirmation(pendingEmail)} disabled={submitting}>
+                  Resend email
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPendingEmail(null)}>
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+
           {mode !== "forgot" && (
             <>
               <Button type="button" variant="outline" className="w-full" onClick={onGoogle} disabled={submitting}>
