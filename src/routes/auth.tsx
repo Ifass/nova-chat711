@@ -37,12 +37,30 @@ function AuthPage() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/" });
     });
   }, [navigate]);
+
+  const resendConfirmation = async (target: string) => {
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: target,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      toast.success("Confirmation email sent. Check your inbox.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend email");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +71,7 @@ function AuthPage() {
         if (cleanUsername.length < 3) { toast.error("Username must be 3+ chars (letters, numbers, _)"); return; }
         if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
         if (password !== confirm) { toast.error("Passwords don't match"); return; }
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
             emailRedirectTo: window.location.origin,
@@ -61,11 +79,23 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Welcome to NovaChat!");
-        navigate({ to: "/" });
+        if (data.session) {
+          toast.success("Welcome to NovaChat!");
+          navigate({ to: "/" });
+        } else {
+          setPendingEmail(email);
+          toast.success("Confirmation email sent. Please verify your inbox.");
+        }
       } else if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (/confirm/i.test(error.message) || (error as { code?: string }).code === "email_not_confirmed") {
+            setPendingEmail(email);
+            toast.error("Please confirm your email first. We can resend the link.");
+            return;
+          }
+          throw error;
+        }
         navigate({ to: "/" });
       } else {
         // forgot
