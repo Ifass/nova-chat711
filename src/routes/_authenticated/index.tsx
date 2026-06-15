@@ -13,6 +13,7 @@ import { FriendsTab } from "@/components/novachat/FriendsTab";
 import { AITab } from "@/components/novachat/AITab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
+import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -172,6 +173,7 @@ function AppShell() {
           <EmptyChatState />
         )}
       </main>
+      <IncomingCallListener meId={profile.id} />
     </div>
   );
 }

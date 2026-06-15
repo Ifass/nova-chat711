@@ -10,9 +10,11 @@ export type Profile = {
   avatar_url: string | null;
   email: string | null;
   bio: string | null;
+  email_verified: boolean;
+  email_verified_at: string | null;
 };
 
-const SELECT = "id, username, display_name, unique_code, avatar_url, email, bio";
+const SELECT = "id, username, display_name, unique_code, avatar_url, email, bio, email_verified, email_verified_at";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);

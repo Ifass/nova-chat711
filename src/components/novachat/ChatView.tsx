@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { startCall } from "@/lib/call.functions";
+import { openVoiceCall } from "@/components/novachat/IncomingCallListener";
 import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,8 @@ export function ChatView({
   const [reactions, setReactions] = useState<ReactionRow[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [calling, setCalling] = useState(false);
+  const startCallFn = useServerFn(startCall);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -185,6 +190,22 @@ export function ChatView({
             {peerTyping ? "typing…" : online ? "online" : `@${peer.username}`}
           </div>
         </div>
+        <Button
+          variant="ghost" size="icon" aria-label={`Call ${peer.display_name}`} disabled={calling}
+          onClick={async () => {
+            setCalling(true);
+            try {
+              const r = await startCallFn({ data: { calleeId: peer.id } });
+              openVoiceCall({
+                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing",
+              });
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Couldn't start call");
+            } finally { setCalling(false); }
+          }}
+        >
+          <Phone className="size-5" />
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="More"><MoreVertical className="size-5" /></Button>

@@ -38,6 +38,119 @@ export type Database = {
         }
         Relationships: []
       }
+      call_ratings: {
+        Row: {
+          call_id: string
+          created_at: string
+          feedback: string | null
+          id: string
+          stars: number
+          user_id: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          stars: number
+          user_id: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          stars?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_ratings_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          callee_id: string
+          caller_id: string
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          ended_reason: string | null
+          id: string
+          room_name: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          callee_id: string
+          caller_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          room_name: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          callee_id?: string
+          caller_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          ended_reason?: string | null
+          id?: string
+          room_name?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          purpose?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       friends: {
         Row: {
           created_at: string
@@ -152,6 +265,8 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          email_verified: boolean
+          email_verified_at: string | null
           id: string
           last_seen: string
           unique_code: string
@@ -163,6 +278,8 @@ export type Database = {
           created_at?: string
           display_name: string
           email?: string | null
+          email_verified?: boolean
+          email_verified_at?: string | null
           id: string
           last_seen?: string
           unique_code: string
@@ -174,6 +291,8 @@ export type Database = {
           created_at?: string
           display_name?: string
           email?: string | null
+          email_verified?: boolean
+          email_verified_at?: string | null
           id?: string
           last_seen?: string
           unique_code?: string
