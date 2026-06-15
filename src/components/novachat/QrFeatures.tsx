@@ -103,7 +103,7 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
       cancelled = true;
       const inst = scannerRef.current;
       scannerRef.current = null;
-      if (inst) { inst.stop().catch(() => {}).then(() => inst.clear().catch(() => {})); }
+      if (inst) { inst.stop().then(() => { try { inst.clear(); } catch { /* noop */ } }).catch(() => {}); }
       setScanning(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
