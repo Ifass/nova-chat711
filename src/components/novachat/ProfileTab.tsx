@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { initials, BUILTIN_AVATARS } from "@/lib/novachat-types";
 import type { Profile } from "@/lib/use-auth";
 import { QrShareDialog } from "@/components/novachat/QrFeatures";
+import { EmailVerifyCard } from "@/components/novachat/EmailVerifyCard";
 import { cn } from "@/lib/utils";
 
 export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated: () => Promise<void> }) {
@@ -67,6 +68,8 @@ export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated
         </div>
         <p className="text-xs text-muted-foreground mt-2">Share this so others can find you.</p>
       </div>
+
+      <EmailVerifyCard profile={profile} onVerified={onUpdated} />
 
       {/* Avatar picker */}
       <div className="space-y-2">
