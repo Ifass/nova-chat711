@@ -9,7 +9,10 @@ export type Profile = {
   unique_code: string;
   avatar_url: string | null;
   email: string | null;
+  bio: string | null;
 };
+
+const SELECT = "id, username, display_name, unique_code, avatar_url, email, bio";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -44,7 +47,7 @@ export function useAuth() {
     const load = async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, display_name, unique_code, avatar_url, email")
+        .select(SELECT)
         .eq("id", user.id)
         .maybeSingle();
       if (!cancel && data) setProfile(data as Profile);
@@ -55,13 +58,18 @@ export function useAuth() {
     };
   }, [user]);
 
-  return { user, profile, loading, refreshProfile: async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, display_name, unique_code, avatar_url, email")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (data) setProfile(data as Profile);
-  } };
+  return {
+    user,
+    profile,
+    loading,
+    refreshProfile: async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select(SELECT)
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data) setProfile(data as Profile);
+    },
+  };
 }

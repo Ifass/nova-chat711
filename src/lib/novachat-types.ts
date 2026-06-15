@@ -23,6 +23,25 @@ export type FriendRow = {
   created_at: string;
 };
 
+export type ReactionRow = {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+};
+
+export const REACTION_EMOJIS = ["❤️", "👍", "😂", "😢", "🔥"] as const;
+
+// 6 built-in cartoon avatars (DiceBear public CDN — no API key, deterministic).
+export const BUILTIN_AVATARS: { id: string; url: string; label: string }[] = [
+  { id: "fox",    label: "Fox",    url: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=Fox&backgroundColor=ffadad" },
+  { id: "panda",  label: "Panda",  url: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=Panda&backgroundColor=a0c4ff" },
+  { id: "robot",  label: "Robot",  url: "https://api.dicebear.com/9.x/bottts/svg?seed=Nova&backgroundColor=caffbf" },
+  { id: "cat",    label: "Cat",    url: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=Cat&backgroundColor=ffd6a5" },
+  { id: "alien",  label: "Alien",  url: "https://api.dicebear.com/9.x/bottts/svg?seed=Comet&backgroundColor=bdb2ff" },
+  { id: "bear",   label: "Bear",   url: "https://api.dicebear.com/9.x/fun-emoji/svg?seed=Bear&backgroundColor=fdffb6" },
+];
+
 export function initials(name: string) {
   return name
     .split(/\s+/)
