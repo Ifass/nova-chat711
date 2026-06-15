@@ -190,10 +190,6 @@ export function ChatView({
             {peerTyping ? "typing…" : online ? "online" : `@${peer.username}`}
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="More"><MoreVertical className="size-5" /></Button>
-          </DropdownMenuTrigger>
         <Button
           variant="ghost" size="icon" aria-label={`Call ${peer.display_name}`} disabled={calling}
           onClick={async () => {
