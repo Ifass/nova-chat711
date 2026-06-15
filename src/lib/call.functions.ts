@@ -67,7 +67,10 @@ export const updateCallStatus = createServerFn({ method: "POST" })
     if (!call) throw new Error("Call not found");
     if (call.caller_id !== userId && call.callee_id !== userId) throw new Error("Not a participant");
 
-    const patch: Record<string, unknown> = { status: data.status, updated_at: new Date().toISOString() };
+    const patch: {
+      status: string; updated_at: string;
+      started_at?: string; ended_at?: string; ended_reason?: string; duration_seconds?: number;
+    } = { status: data.status, updated_at: new Date().toISOString() };
     if (data.status === "accepted" && !call.started_at) patch.started_at = new Date().toISOString();
     if (data.status === "ended" || data.status === "missed" || data.status === "declined") {
       const endedAt = new Date();
