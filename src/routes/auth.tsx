@@ -79,23 +79,15 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        if (data.session) {
-          toast.success("Welcome to NovaChat!");
-          navigate({ to: "/" });
-        } else {
-          setPendingEmail(email);
-          toast.success("Confirmation email sent. Please verify your inbox.");
+        if (!data.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
         }
+        toast.success("Welcome to NovaChat!");
+        navigate({ to: "/" });
       } else if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          if (/confirm/i.test(error.message) || (error as { code?: string }).code === "email_not_confirmed") {
-            setPendingEmail(email);
-            toast.error("Please confirm your email first. We can resend the link.");
-            return;
-          }
-          throw error;
-        }
+        if (error) throw error;
         navigate({ to: "/" });
       } else {
         // forgot
