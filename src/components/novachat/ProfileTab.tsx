@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { initials, BUILTIN_AVATARS } from "@/lib/novachat-types";
 import type { Profile } from "@/lib/use-auth";
 import { QrShareDialog } from "@/components/novachat/QrFeatures";
-import { EmailVerifyCard } from "@/components/novachat/EmailVerifyCard";
+
 import { cn } from "@/lib/utils";
 
 export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated: () => Promise<void> }) {
