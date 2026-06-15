@@ -69,7 +69,7 @@ export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated
         <p className="text-xs text-muted-foreground mt-2">Share this so others can find you.</p>
       </div>
 
-      <EmailVerifyCard profile={profile} onVerified={onUpdated} />
+      
 
       {/* Avatar picker */}
       <div className="space-y-2">
