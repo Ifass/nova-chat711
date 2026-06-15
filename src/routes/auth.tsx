@@ -14,7 +14,11 @@ export const Route = createFileRoute("/auth")({
     meta: [
       { title: "Sign in to NovaChat" },
       { name: "description", content: "Sign in or create a NovaChat account to start messaging friends and chatting with AI." },
+      { property: "og:title", content: "Sign in to NovaChat" },
+      { property: "og:description", content: "Sign in or create a NovaChat account to start messaging friends and chatting with AI." },
+      { property: "og:url", content: "https://push-hug-it.lovable.app/auth" },
     ],
+    links: [{ rel: "canonical", href: "https://push-hug-it.lovable.app/auth" }],
   }),
   component: AuthPage,
 });
@@ -71,7 +75,7 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-accent/30 to-primary/10">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-accent/30 to-primary/10">
       <div className="w-full max-w-md">
         <Link to="/auth" className="flex items-center justify-center gap-2 mb-8">
           <div className="size-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/30">
@@ -157,6 +161,6 @@ function AuthPage() {
           </div>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }
