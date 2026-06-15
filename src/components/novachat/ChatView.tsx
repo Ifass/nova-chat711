@@ -135,12 +135,12 @@ export function ChatView({
   return (
     <div className="flex flex-col h-full">
       <header className="h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-border bg-card">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to conversations">
           <ArrowLeft className="size-5" />
         </Button>
         <div className="relative">
           <Avatar className="size-10">
-            <AvatarImage src={peer.avatar_url ?? undefined} />
+            <AvatarImage src={peer.avatar_url ?? undefined} alt={peer.display_name} />
             <AvatarFallback className="bg-primary/15 text-primary">
               {initials(peer.display_name)}
             </AvatarFallback>
@@ -204,7 +204,7 @@ export function ChatView({
             placeholder="Type a message"
             autoFocus
           />
-          <Button type="submit" size="icon" disabled={!input.trim() || sending}>
+          <Button type="submit" size="icon" disabled={!input.trim() || sending} aria-label="Send message">
             <Send className="size-4" />
           </Button>
         </div>

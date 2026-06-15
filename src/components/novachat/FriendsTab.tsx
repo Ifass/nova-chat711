@@ -138,10 +138,10 @@ export function FriendsTab({
           {incoming.map((f) => (
             <Row key={f.friend.id} profile={f.profile}>
               <div className="flex gap-1">
-                <Button size="icon" variant="default" onClick={() => respond(f.friend, true)} title="Accept">
+                <Button size="icon" variant="default" onClick={() => respond(f.friend, true)} title="Accept" aria-label="Accept friend request">
                   <Check className="size-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => respond(f.friend, false)} title="Decline">
+                <Button size="icon" variant="ghost" onClick={() => respond(f.friend, false)} title="Decline" aria-label="Decline friend request">
                   <X className="size-4" />
                 </Button>
               </div>
@@ -168,7 +168,7 @@ export function FriendsTab({
         )}
         {friends.map((f) => (
           <Row key={f.friend.id} profile={f.profile} dotOnline={online.has(f.profile.id)}>
-            <Button size="icon" variant="ghost" onClick={() => onOpenChat(f.profile)} title="Message">
+            <Button size="icon" variant="ghost" onClick={() => onOpenChat(f.profile)} title="Message" aria-label={`Message ${f.profile.display_name}`}>
               <MessageCircle className="size-4" />
             </Button>
           </Row>
@@ -192,7 +192,7 @@ function Row({ profile, dotOnline, children }: { profile: ProfileLite; dotOnline
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40">
       <div className="relative">
         <Avatar className="size-10">
-          <AvatarImage src={profile.avatar_url ?? undefined} />
+          <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.display_name} />
           <AvatarFallback className="bg-primary/15 text-primary text-xs">{initials(profile.display_name)}</AvatarFallback>
         </Avatar>
         {dotOnline && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online border-2 border-card" />}

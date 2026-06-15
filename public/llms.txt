@@ -1,0 +1,9 @@
+# NovaChat
+
+> NovaChat is a modern real-time messaging app with friend codes, typing indicators, read receipts, and a built-in AI assistant powered by Gemini.
+
+NovaChat lets people connect through unique friend codes, exchange real-time 1:1 messages, and chat with a private AI assistant — all in one beautiful, fast interface.
+
+## Pages
+
+- [Sign in](/auth): Sign in or create a NovaChat account.

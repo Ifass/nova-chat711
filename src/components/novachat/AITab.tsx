@@ -61,7 +61,7 @@ export function AITab({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <header className="h-16 px-4 flex items-center gap-3 border-b border-border bg-card">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back">
           <ArrowLeft className="size-5" />
         </Button>
         <div className="size-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground grid place-items-center">
@@ -72,7 +72,7 @@ export function AITab({ onBack }: { onBack: () => void }) {
           <div className="text-xs text-muted-foreground">Powered by Gemini</div>
         </div>
         {messages.length > 0 && (
-          <Button variant="ghost" size="icon" onClick={clear} title="Clear conversation">
+          <Button variant="ghost" size="icon" onClick={clear} title="Clear conversation" aria-label="Clear conversation">
             <Trash2 className="size-4" />
           </Button>
         )}
@@ -135,7 +135,7 @@ export function AITab({ onBack }: { onBack: () => void }) {
             disabled={isLoading}
             autoFocus
           />
-          <Button type="submit" disabled={isLoading || !input.trim()} size="icon">
+          <Button type="submit" disabled={isLoading || !input.trim()} size="icon" aria-label="Send message">
             <Send className="size-4" />
           </Button>
         </div>

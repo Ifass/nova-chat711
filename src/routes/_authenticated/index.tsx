@@ -19,7 +19,11 @@ export const Route = createFileRoute("/_authenticated/")({
     meta: [
       { title: "NovaChat — Modern Messaging" },
       { name: "description", content: "NovaChat: real-time 1:1 chat, friend codes, and an AI assistant in one beautiful app." },
+      { property: "og:title", content: "NovaChat — Modern Messaging" },
+      { property: "og:description", content: "NovaChat: real-time 1:1 chat, friend codes, and an AI assistant in one beautiful app." },
+      { property: "og:url", content: "https://push-hug-it.lovable.app/" },
     ],
+    links: [{ rel: "canonical", href: "https://push-hug-it.lovable.app/" }],
   }),
   component: AppShell,
 });
@@ -65,8 +69,9 @@ function AppShell() {
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">
+      <h1 className="sr-only">NovaChat — your messaging dashboard</h1>
       {/* Rail (desktop) */}
-      <nav className="hidden md:flex w-16 lg:w-20 flex-col items-center py-4 bg-sidebar border-r border-sidebar-border">
+      <nav className="hidden md:flex w-16 lg:w-20 flex-col items-center py-4 bg-sidebar border-r border-sidebar-border" aria-label="Primary">
         <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center mb-6 shadow-md shadow-primary/30">
           <MessageCircle className="size-5" />
         </div>
@@ -88,7 +93,7 @@ function AppShell() {
             </button>
           ))}
         </div>
-        <button onClick={handleSignOut} className="size-12 rounded-xl grid place-items-center text-muted-foreground hover:text-destructive hover:bg-sidebar-accent" title="Sign out">
+        <button onClick={handleSignOut} className="size-12 rounded-xl grid place-items-center text-muted-foreground hover:text-destructive hover:bg-sidebar-accent" title="Sign out" aria-label="Sign out">
           <LogOut className="size-5" />
         </button>
       </nav>
@@ -101,7 +106,7 @@ function AppShell() {
         <header className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
             <Avatar className="size-9">
-              <AvatarImage src={profile.avatar_url ?? undefined} />
+              <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.display_name} />
               <AvatarFallback className="bg-primary/15 text-primary text-sm font-medium">
                 {initials(profile.display_name)}
               </AvatarFallback>
@@ -111,7 +116,7 @@ function AppShell() {
               <div className="text-xs text-muted-foreground truncate">@{profile.username}</div>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={handleSignOut} title="Sign out">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={handleSignOut} title="Sign out" aria-label="Sign out">
             <LogOut className="size-4" />
           </Button>
         </header>
