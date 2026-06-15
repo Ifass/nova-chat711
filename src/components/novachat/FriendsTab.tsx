@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
-import { Search, UserPlus, Check, X, MessageCircle } from "lucide-react";
+import { Search, UserPlus, Check, X, MessageCircle, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { initials, type ProfileLite, type FriendRow } from "@/lib/novachat-types";
+import { QrScanDialog, QrShareDialog } from "@/components/novachat/QrFeatures";
 
 type FriendWithProfile = { friend: FriendRow; profile: ProfileLite };
 
 export function FriendsTab({
-  me,
-  online,
-  onOpenChat,
+  me, online, onOpenChat,
 }: {
   me: ProfileLite;
   online: Set<string>;
@@ -24,19 +27,15 @@ export function FriendsTab({
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [incoming, setIncoming] = useState<FriendWithProfile[]>([]);
   const [outgoing, setOutgoing] = useState<FriendWithProfile[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState<FriendWithProfile | null>(null);
 
   const load = async () => {
     const { data: rows } = await supabase
       .from("friends")
       .select("id, sender_id, receiver_id, status, created_at");
     if (!rows) return;
-    const otherIds = Array.from(
-      new Set(rows.map((r) => (r.sender_id === me.id ? r.receiver_id : r.sender_id)))
-    );
-    if (otherIds.length === 0) {
-      setFriends([]); setIncoming([]); setOutgoing([]);
-      return;
-    }
+    const otherIds = Array.from(new Set(rows.map((r) => (r.sender_id === me.id ? r.receiver_id : r.sender_id))));
+    if (otherIds.length === 0) { setFriends([]); setIncoming([]); setOutgoing([]); return; }
     const { data: profs } = await supabase
       .from("profiles")
       .select("id, username, display_name, unique_code, avatar_url")
@@ -76,11 +75,7 @@ export function FriendsTab({
   }, [q]);
 
   const sendRequest = async (peer: ProfileLite) => {
-    const { error } = await supabase.from("friends").insert({
-      sender_id: me.id,
-      receiver_id: peer.id,
-      status: "pending",
-    });
+    const { error } = await supabase.from("friends").insert({ sender_id: me.id, receiver_id: peer.id, status: "pending" });
     if (error) toast.error(error.message);
     else { toast.success(`Friend request sent to @${peer.username}`); setQ(""); setResults([]); load(); }
   };
@@ -95,9 +90,16 @@ export function FriendsTab({
     }
   };
 
+  const removeFriend = async (fw: FriendWithProfile) => {
+    const { error } = await supabase.from("friends").delete().eq("id", fw.friend.id);
+    if (error) toast.error(error.message);
+    else { toast.success(`Removed ${fw.profile.display_name}`); load(); }
+    setConfirmRemove(null);
+  };
+
   return (
     <div className="overflow-y-auto h-full">
-      <div className="p-4 sticky top-0 bg-card border-b border-border z-10">
+      <div className="p-4 sticky top-0 bg-card border-b border-border z-10 space-y-3">
         <div className="relative">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -106,6 +108,10 @@ export function FriendsTab({
             placeholder="Search username or friend code (e.g. ABD-7X2K)"
             className="pl-9"
           />
+        </div>
+        <div className="flex gap-2">
+          <QrShareDialog code={me.unique_code} displayName={me.display_name} />
+          <QrScanDialog me={me} onAdded={load} />
         </div>
       </div>
 
@@ -116,13 +122,9 @@ export function FriendsTab({
             return (
               <Row key={r.id} profile={r}>
                 {existing ? (
-                  <span className="text-xs text-muted-foreground">
-                    {existing.friend.status === "accepted" ? "Friend" : "Pending"}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{existing.friend.status === "accepted" ? "Friend" : "Pending"}</span>
                 ) : (
-                  <Button size="sm" onClick={() => sendRequest(r)}>
-                    <UserPlus className="size-4 mr-1" /> Add
-                  </Button>
+                  <Button size="sm" onClick={() => sendRequest(r)}><UserPlus className="size-4 mr-1" /> Add</Button>
                 )}
               </Row>
             );
@@ -163,17 +165,39 @@ export function FriendsTab({
       <Section title={`Friends (${friends.length})`}>
         {friends.length === 0 && !q && (
           <div className="px-4 py-6 text-sm text-muted-foreground text-center">
-            No friends yet. Share your code <span className="font-mono font-semibold text-foreground">{me.unique_code}</span> or search above.
+            No friends yet. Share your code <span className="font-mono font-semibold text-foreground">{me.unique_code}</span> or scan a QR.
           </div>
         )}
         {friends.map((f) => (
           <Row key={f.friend.id} profile={f.profile} dotOnline={online.has(f.profile.id)}>
-            <Button size="icon" variant="ghost" onClick={() => onOpenChat(f.profile)} title="Message" aria-label={`Message ${f.profile.display_name}`}>
-              <MessageCircle className="size-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={() => onOpenChat(f.profile)} title="Message" aria-label={`Message ${f.profile.display_name}`}>
+                <MessageCircle className="size-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setConfirmRemove(f)} title="Remove friend" aria-label={`Remove ${f.profile.display_name}`}>
+                <UserMinus className="size-4 text-destructive" />
+              </Button>
+            </div>
           </Row>
         ))}
       </Section>
+
+      <AlertDialog open={!!confirmRemove} onOpenChange={(o) => !o && setConfirmRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove friend?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmRemove && <>You won't be able to message <span className="font-semibold">{confirmRemove.profile.display_name}</span> until you're friends again.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmRemove && removeFriend(confirmRemove)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
