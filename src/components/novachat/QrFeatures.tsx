@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, Share2, Copy, Check, Camera, X, RefreshCw, SwitchCamera, ExternalLink } from "lucide-react";
+import { QrCode, Share2, Copy, Check, Camera, RefreshCw, SwitchCamera, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
