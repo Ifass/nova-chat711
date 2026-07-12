@@ -143,7 +143,7 @@ function AppShell() {
         </div>
 
         {/* Mobile bottom tab bar */}
-        <nav className="md:hidden h-16 border-t border-border bg-sidebar grid grid-cols-4">
+        <nav className="md:hidden h-16 border-t border-border bg-sidebar grid grid-cols-5">
           {tabs.map((t) => (
             <button
               key={t.id}
