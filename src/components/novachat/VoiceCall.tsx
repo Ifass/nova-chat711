@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Room, RoomEvent, ConnectionState, Track,
