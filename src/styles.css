@@ -89,46 +89,49 @@
 }
 
 .dark {
-  --background: oklch(0.14 0.015 210);
-  --foreground: oklch(0.96 0.005 200);
+  /* Layered dark surfaces: deep graphite base → slate cards → lighter popovers.
+     Inspired by Discord/Linear/GitHub: never pure black, cool slate undertone. */
+  --background: oklch(0.16 0.012 240);
+  --foreground: oklch(0.96 0.005 210);
 
-  --card: oklch(0.19 0.02 210);
-  --card-foreground: oklch(0.96 0 0);
-  --popover: oklch(0.19 0.02 210);
-  --popover-foreground: oklch(0.96 0 0);
+  --card: oklch(0.205 0.014 240);
+  --card-foreground: oklch(0.97 0.005 210);
+  --popover: oklch(0.235 0.015 240);
+  --popover-foreground: oklch(0.97 0.005 210);
 
-  --primary: oklch(0.7 0.14 165);
-  --primary-foreground: oklch(0.15 0.02 200);
+  --primary: oklch(0.72 0.14 165);
+  --primary-foreground: oklch(0.14 0.02 200);
 
-  --secondary: oklch(0.24 0.02 210);
-  --secondary-foreground: oklch(0.96 0 0);
+  --secondary: oklch(0.25 0.016 240);
+  --secondary-foreground: oklch(0.96 0.005 210);
 
-  --muted: oklch(0.22 0.02 210);
-  --muted-foreground: oklch(0.68 0.02 210);
+  --muted: oklch(0.235 0.014 240);
+  --muted-foreground: oklch(0.7 0.018 220);
 
-  --accent: oklch(0.28 0.04 180);
-  --accent-foreground: oklch(0.95 0.02 180);
+  --accent: oklch(0.3 0.035 190);
+  --accent-foreground: oklch(0.96 0.02 180);
 
-  --destructive: oklch(0.65 0.22 25);
+  --destructive: oklch(0.62 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
 
-  --border: oklch(0.27 0.02 210);
-  --input: oklch(0.27 0.02 210);
-  --ring: oklch(0.7 0.14 165);
+  --border: oklch(0.29 0.016 240);
+  --input: oklch(0.27 0.016 240);
+  --ring: oklch(0.72 0.14 165);
 
-  --sidebar: oklch(0.17 0.02 210);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-accent: oklch(0.24 0.03 200);
-  --sidebar-accent-foreground: oklch(0.96 0 0);
-  --sidebar-border: oklch(0.25 0.02 210);
+  --sidebar: oklch(0.185 0.013 240);
+  --sidebar-foreground: oklch(0.95 0.005 210);
+  --sidebar-accent: oklch(0.27 0.02 210);
+  --sidebar-accent-foreground: oklch(0.97 0.005 210);
+  --sidebar-border: oklch(0.26 0.015 240);
 
-  --chat-bg: oklch(0.16 0.015 200);
-  --bubble-me: oklch(0.38 0.08 170);
-  --bubble-me-foreground: oklch(0.97 0 0);
-  --bubble-other: oklch(0.22 0.02 210);
-  --bubble-other-foreground: oklch(0.96 0 0);
-  --online: oklch(0.72 0.18 145);
+  --chat-bg: oklch(0.17 0.012 235);
+  --bubble-me: oklch(0.4 0.09 168);
+  --bubble-me-foreground: oklch(0.98 0 0);
+  --bubble-other: oklch(0.245 0.015 240);
+  --bubble-other-foreground: oklch(0.97 0 0);
+  --online: oklch(0.74 0.18 145);
 }
+
 
 @layer base {
   * { border-color: var(--color-border); }
