@@ -34,20 +34,17 @@ export function IncomingCallListener({ meId }: { meId: string }) {
         async (payload) => {
           const c = payload.new as { id: string; caller_id: string; status: string };
           if (c.status !== "ringing") return;
-          if (active) return;
-          // fetch caller profile
           const { data: peer } = await supabase.from("profiles")
             .select("id, username, display_name, unique_code, avatar_url, bio")
             .eq("id", c.caller_id).maybeSingle();
           if (!peer) return;
           try {
             const t = await fetchToken({ data: { callId: c.id } });
-            setActive({
+            setActive((cur) => cur ?? {
               callId: c.id, token: t.token, url: t.url, peer: peer as ProfileLite,
               role: "callee", initialStatus: "ringing",
             });
-            // auto-miss after 30s if still ringing
-            setTimeout(async () => {
+            setTimeout(() => {
               setActive((cur) => {
                 if (cur?.callId === c.id) {
                   updStatus({ data: { callId: c.id, status: "missed" } }).catch(() => {});
@@ -64,7 +61,7 @@ export function IncomingCallListener({ meId }: { meId: string }) {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [meId, fetchToken, updStatus, active]);
+  }, [meId, fetchToken, updStatus]);
 
   if (!active) return null;
   return (
