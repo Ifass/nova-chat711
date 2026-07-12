@@ -128,6 +128,9 @@ function AppShell() {
           {tab === "chats" && (
             <ChatsTab me={profile} online={online} activePeerId={activePeer?.id} onOpen={openChat} />
           )}
+          {tab === "calls" && (
+            <CallsTab me={profile} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
+          )}
           {tab === "friends" && (
             <FriendsTab me={profile} online={online} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
           )}
