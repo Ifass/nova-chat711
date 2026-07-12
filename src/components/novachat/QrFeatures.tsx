@@ -75,105 +75,21 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
   const [open, setOpen] = useState(false);
   const [manual, setManual] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const startingRef = useRef(false);
   const [scanning, setScanning] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
+  const [inIframe, setInIframe] = useState(false);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [currentCamId, setCurrentCamId] = useState<string | null>(null);
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [attempt, setAttempt] = useState(0);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setCamError(null);
-
-    const start = async () => {
-      // Preflight checks
-      if (typeof window !== "undefined" && !window.isSecureContext) {
-        setCamError("Camera needs a secure (https://) connection. Open the site directly in your browser.");
-        return;
-      }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCamError("This browser doesn't support camera access. Try Chrome or Safari.");
-        return;
-      }
-
-      // Request permission first with a plain getUserMedia call so the browser
-      // shows a prompt. We immediately stop the tracks — html5-qrcode will
-      // open its own stream once permission is granted.
-      let permStream: MediaStream | null = null;
-      try {
-        permStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-      } catch (err) {
-        const e = err as DOMException;
-        if (cancelled) return;
-        if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
-          setCamError("Camera permission was blocked. Allow camera access in your browser settings and try again.");
-        } else if (e?.name === "NotFoundError" || e?.name === "OverconstrainedError") {
-          setCamError("No camera found on this device.");
-        } else if (e?.name === "NotReadableError") {
-          setCamError("Camera is being used by another app. Close it and try again.");
-        } else {
-          setCamError(e?.message || "Couldn't open camera. You can paste a friend code below.");
-        }
-        return;
-      } finally {
-        permStream?.getTracks().forEach((t) => t.stop());
-      }
-
-      if (cancelled) return;
-
-      try {
-        const inst = new Html5Qrcode("nc-qr-reader", { verbose: false });
-        scannerRef.current = inst;
-        const config = { fps: 10, qrbox: { width: 220, height: 220 } };
-
-        const tryStart = async () => {
-          try {
-            await inst.start({ facingMode: { ideal: "environment" } }, config, onDecoded, () => {});
-            return true;
-          } catch {
-            // Fallback: pick any available camera (rear preferred by label)
-            const cams = await Html5Qrcode.getCameras();
-            if (!cams?.length) throw new Error("No cameras available");
-            const rear = cams.find((c) => /back|rear|environment/i.test(c.label)) ?? cams[cams.length - 1];
-            await inst.start(rear.id, config, onDecoded, () => {});
-            return true;
-          }
-        };
-
-        const onDecoded = async (decoded: string) => {
-          if (cancelled) return;
-          await handleDecoded(decoded);
-        };
-
-        await tryStart();
-        if (!cancelled) setScanning(true);
-      } catch (err) {
-        const msg = (err as Error)?.message || "Couldn't start the camera.";
-        if (!cancelled) setCamError(msg);
-      }
-    };
-
-    start();
-    return () => {
-      cancelled = true;
-      const inst = scannerRef.current;
-      scannerRef.current = null;
-      if (inst) { inst.stop().then(() => { try { inst.clear(); } catch { /* noop */ } }).catch(() => {}); }
-      setScanning(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  const handleDecoded = async (raw: string) => {
+  const handleDecoded = useCallback(async (raw: string) => {
     let code = raw.trim();
     try { const u = new URL(raw); code = u.searchParams.get("add") ?? code; } catch { /* not a url */ }
     code = code.toUpperCase();
     if (!/^[A-Z]{3}-[A-Z0-9]{4}$/.test(code)) { toast.error("Not a valid NovaChat code"); return; }
-    await addByCode(code);
-  };
-
-  const addByCode = async (code: string) => {
     const { data: profiles, error: searchErr } = await supabase.rpc("search_users", { q: code });
     if (searchErr) { toast.error(searchErr.message); return; }
     const found = (profiles ?? [])[0];
@@ -184,7 +100,168 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
     toast.success(`Friend request sent to @${found.username}`);
     setOpen(false);
     onAdded();
-  };
+  }, [me.id, onAdded]);
+
+  const stopScanner = useCallback(async () => {
+    const inst = scannerRef.current;
+    scannerRef.current = null;
+    setScanning(false);
+    if (!inst) return;
+    try {
+      const state = inst.getState();
+      // 2 = SCANNING, 3 = PAUSED
+      if (state === 2 || state === 3) await inst.stop();
+    } catch (e) { console.warn("[QR] stop error:", e); }
+    try { inst.clear(); } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setCamError(null);
+    setErrorHint(null);
+
+    // ---- Diagnostics ----
+    const inFrame = typeof window !== "undefined" && window.self !== window.top;
+    setInIframe(inFrame);
+    console.groupCollapsed("[QR] Camera diagnostics");
+    console.log("secureContext:", typeof window !== "undefined" ? window.isSecureContext : "n/a");
+    console.log("protocol:", typeof location !== "undefined" ? location.protocol : "n/a");
+    console.log("host:", typeof location !== "undefined" ? location.host : "n/a");
+    console.log("userAgent:", typeof navigator !== "undefined" ? navigator.userAgent : "n/a");
+    console.log("mediaDevices:", !!navigator.mediaDevices);
+    console.log("getUserMedia:", !!navigator.mediaDevices?.getUserMedia);
+    console.log("inIframe:", inFrame);
+    console.groupEnd();
+
+    const start = async () => {
+      if (startingRef.current) return;
+      startingRef.current = true;
+      try {
+        // Preflight
+        if (typeof window !== "undefined" && !window.isSecureContext) {
+          setCamError("Camera requires a secure connection (https://).");
+          setErrorHint("Open the site over HTTPS or on localhost.");
+          return;
+        }
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCamError("This browser doesn't support camera access.");
+          setErrorHint("Try the latest Chrome, Safari, Edge, or Firefox.");
+          return;
+        }
+
+        // Query permission state where supported (Chromium/Firefox on secure origins)
+        try {
+          const perm = await navigator.permissions?.query?.({ name: "camera" as PermissionName });
+          if (perm) console.log("[QR] permission state:", perm.state);
+          if (perm?.state === "denied") {
+            setCamError("Camera permission is blocked for this site.");
+            setErrorHint(
+              "Click the lock icon in the address bar → Site settings → allow Camera, then reload."
+            );
+            return;
+          }
+        } catch { /* not supported — continue */ }
+
+        // Prime permission with a plain getUserMedia call inside this async chain.
+        // We stop these tracks immediately; html5-qrcode reopens its own stream.
+        let permStream: MediaStream | null = null;
+        try {
+          permStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing } },
+            audio: false,
+          });
+        } catch (err) {
+          const e = err as DOMException;
+          console.error("[QR] getUserMedia failed:", e?.name, e?.message, e);
+          if (cancelled) return;
+          if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
+            if (inFrame) {
+              setCamError("Camera is blocked inside this embedded preview.");
+              setErrorHint("Open the published site in a new tab to scan.");
+            } else {
+              setCamError("Camera permission was denied.");
+              setErrorHint("Click the lock icon in the address bar → allow Camera → reload.");
+            }
+          } else if (e?.name === "NotFoundError" || e?.name === "OverconstrainedError" || e?.name === "DevicesNotFoundError") {
+            setCamError("No camera detected on this device.");
+            setErrorHint("Connect a webcam or use a device with a built-in camera.");
+          } else if (e?.name === "NotReadableError" || e?.name === "TrackStartError") {
+            setCamError("Your camera is already in use by another app.");
+            setErrorHint("Close Zoom, Meet, or any other camera app and try again.");
+          } else if (e?.name === "AbortError") {
+            setCamError("Camera start was aborted. Please try again.");
+          } else {
+            setCamError(e?.message || "Couldn't access the camera.");
+          }
+          return;
+        } finally {
+          permStream?.getTracks().forEach((t) => t.stop());
+        }
+        if (cancelled) return;
+
+        // Enumerate cameras (labels are only available after permission is granted)
+        let camList: { id: string; label: string }[] = [];
+        try {
+          const cams = await Html5Qrcode.getCameras();
+          camList = cams.map((c) => ({ id: c.id, label: c.label || "Camera" }));
+          setCameras(camList);
+          console.log("[QR] cameras:", camList);
+        } catch (e) { console.warn("[QR] getCameras failed:", e); }
+
+        // Pick camera: rear on mobile, front-fallback if only one exists
+        const target = document.getElementById("nc-qr-reader");
+        if (!target) { setCamError("Scanner element missing."); return; }
+
+        const inst = new Html5Qrcode("nc-qr-reader", { verbose: false });
+        scannerRef.current = inst;
+        const config = { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1 };
+
+        const onDecoded = async (decoded: string) => {
+          if (cancelled) return;
+          await handleDecoded(decoded);
+        };
+
+        const startWith = async (): Promise<string | null> => {
+          // First try requested facingMode
+          try {
+            await inst.start({ facingMode: { ideal: facing } }, config, onDecoded, () => {});
+            return null;
+          } catch (e) {
+            console.warn("[QR] facingMode start failed, falling back to deviceId:", e);
+          }
+          if (!camList.length) throw new Error("No cameras available");
+          const rear = camList.find((c) => /back|rear|environment/i.test(c.label));
+          const front = camList.find((c) => /front|user|face/i.test(c.label));
+          const pick = facing === "environment" ? (rear ?? camList[camList.length - 1]) : (front ?? camList[0]);
+          await inst.start(pick.id, config, onDecoded, () => {});
+          return pick.id;
+        };
+
+        try {
+          const usedId = await startWith();
+          setCurrentCamId(usedId);
+          if (!cancelled) setScanning(true);
+        } catch (err) {
+          const e = err as Error;
+          console.error("[QR] Html5Qrcode.start failed:", e);
+          if (!cancelled) {
+            setCamError(e?.message || "Couldn't start the camera.");
+            setErrorHint("Try switching camera or reloading the page.");
+          }
+        }
+      } finally {
+        startingRef.current = false;
+      }
+    };
+
+    start();
+    return () => {
+      cancelled = true;
+      stopScanner();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, facing, attempt]);
 
   const onManual = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,8 +270,17 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
     setManual("");
   };
 
+  const retry = () => { setCamError(null); setErrorHint(null); setAttempt((n) => n + 1); };
+  const switchCam = async () => {
+    await stopScanner();
+    setFacing((f) => (f === "environment" ? "user" : "environment"));
+  };
+  const openInNewTab = () => {
+    window.open(APP_BASE, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) stopScanner(); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm"><Camera className="size-4 mr-1.5" /> Scan QR</Button>
       </DialogTrigger>
@@ -202,17 +288,44 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             Scan a friend's QR
-            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+              <X className="size-4" />
+            </button>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Point your camera at a NovaChat QR code, or paste a friend code below.
+          </DialogDescription>
         </DialogHeader>
         <div id="nc-qr-reader" className="w-full aspect-square rounded-xl overflow-hidden bg-black/80" />
+
         {camError ? (
-          <p className="text-xs text-center text-destructive px-2">{camError}</p>
+          <div className="space-y-2">
+            <p className="text-xs text-center text-destructive px-2 font-medium">{camError}</p>
+            {errorHint && <p className="text-[11px] text-center text-muted-foreground px-2">{errorHint}</p>}
+            <div className="flex gap-2 justify-center pt-1">
+              <Button size="sm" variant="outline" onClick={retry}>
+                <RefreshCw className="size-3.5 mr-1.5" /> Retry
+              </Button>
+              {inIframe && (
+                <Button size="sm" onClick={openInNewTab}>
+                  <ExternalLink className="size-3.5 mr-1.5" /> Open in new tab
+                </Button>
+              )}
+            </div>
+          </div>
         ) : !scanning ? (
           <p className="text-xs text-center text-muted-foreground">Opening camera… allow access when prompted.</p>
         ) : (
-          <p className="text-xs text-center text-muted-foreground">Point your camera at the QR code…</p>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-muted-foreground">Point your camera at the QR…</p>
+            {cameras.length > 1 && (
+              <Button size="sm" variant="ghost" onClick={switchCam} title="Switch camera">
+                <SwitchCamera className="size-4 mr-1" /> Flip
+              </Button>
+            )}
+          </div>
         )}
+
         <form onSubmit={onManual} className="flex gap-2 pt-2">
           <Input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="…or paste code (ABC-1234)" />
           <Button type="submit">Add</Button>
@@ -221,3 +334,4 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
     </Dialog>
   );
 }
+
