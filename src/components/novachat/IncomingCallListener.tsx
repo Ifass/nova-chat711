@@ -44,7 +44,12 @@ export function IncomingCallListener({ meId }: { meId: string }) {
               callId: c.id, token: t.token, url: t.url, peer: peer as ProfileLite,
               role: "callee", initialStatus: "ringing",
             });
-            setTimeout(() => {
+            setTimeout(async () => {
+              // Only mark missed if the call is still ringing in the DB.
+              // Otherwise it may already be accepted/ended and we'd hang up a live call.
+              const { data: row } = await supabase
+                .from("calls").select("status").eq("id", c.id).maybeSingle();
+              if (row?.status !== "ringing") return;
               setActive((cur) => {
                 if (cur?.callId === c.id) {
                   updStatus({ data: { callId: c.id, status: "missed" } }).catch(() => {});
