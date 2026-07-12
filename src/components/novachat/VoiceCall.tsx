@@ -50,6 +50,79 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     return () => clearInterval(i);
   }, [status]);
 
+  // Ringtone (callee incoming) / ringback (caller waiting) — synthesized via Web Audio
+  useEffect(() => {
+    if (status !== "ringing" && status !== "connecting") return;
+    if (status === "connecting" && role === "callee") return;
+    type AudioCtor = typeof AudioContext;
+    const w = window as unknown as { AudioContext?: AudioCtor; webkitAudioContext?: AudioCtor };
+    const AC = w.AudioContext ?? w.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = role === "callee" ? 0.18 : 0.08;
+    master.connect(ctx.destination);
+
+    let stopped = false;
+    const oscs: OscillatorNode[] = [];
+
+    const playTone = (freqs: number[], durationMs: number) => {
+      if (stopped) return;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.02);
+      g.gain.setValueAtTime(1, ctx.currentTime + durationMs / 1000 - 0.03);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + durationMs / 1000);
+      g.connect(master);
+      for (const f of freqs) {
+        const o = ctx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = f;
+        o.connect(g);
+        o.start();
+        o.stop(ctx.currentTime + durationMs / 1000 + 0.05);
+        oscs.push(o);
+      }
+    };
+
+    // Classic ring cadence: two short tones, pause, repeat
+    const ringOnce = () => {
+      if (role === "callee") {
+        // louder double-ring
+        playTone([440, 480], 400);
+        setTimeout(() => playTone([440, 480], 400), 600);
+      } else {
+        // ringback: single long tone (US style ~ 440+480 for 2s, 4s silence)
+        playTone([440, 480], 1500);
+      }
+    };
+    ringOnce();
+    const interval = setInterval(ringOnce, role === "callee" ? 2400 : 4000);
+
+    // Try to resume in case autoplay policy suspended it
+    ctx.resume().catch(() => {});
+
+    // Vibrate on incoming (callee) if supported
+    let vibrateInterval: ReturnType<typeof setInterval> | null = null;
+    if (role === "callee" && "vibrate" in navigator) {
+      try { navigator.vibrate([400, 200, 400, 1400]); } catch { /* ignore */ }
+      vibrateInterval = setInterval(() => {
+        try { navigator.vibrate?.([400, 200, 400, 1400]); } catch { /* ignore */ }
+      }, 2400);
+    }
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+      if (vibrateInterval) clearInterval(vibrateInterval);
+      if (role === "callee" && "vibrate" in navigator) { try { navigator.vibrate(0); } catch { /* ignore */ } }
+      oscs.forEach((o) => { try { o.stop(); } catch { /* ignore */ } });
+      ctx.close().catch(() => {});
+    };
+  }, [status, role]);
+
+
+
   const cancelledRef = useRef(false);
 
   const connect = async (tk: string) => {
