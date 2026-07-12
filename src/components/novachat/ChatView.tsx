@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
+import { cn } from "@/lib/utils";
 
 const CALL_MSG_PREFIX = "[[novacall]]";
 type CallLogPayload = {
