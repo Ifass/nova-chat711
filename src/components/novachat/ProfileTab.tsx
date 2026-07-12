@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Sun, Moon, Monitor } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { initials, BUILTIN_AVATARS } from "@/lib/novachat-types";
 import type { Profile } from "@/lib/use-auth";
 import { QrShareDialog } from "@/components/novachat/QrFeatures";
+import { useTheme, type Theme } from "@/lib/use-theme";
 
 import { cn } from "@/lib/utils";
+
 
 export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated: () => Promise<void> }) {
   const [displayName, setDisplayName] = useState(profile.display_name);
@@ -67,7 +69,10 @@ export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">Share this so others can find you.</p>
-      </div>
+      {/* Theme */}
+      <ThemeSection />
+
+
 
       
 
