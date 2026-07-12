@@ -300,12 +300,7 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
       </DialogTrigger>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            Scan a friend's QR
-            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground" aria-label="Close">
-              <X className="size-4" />
-            </button>
-          </DialogTitle>
+          <DialogTitle>Scan a friend's QR</DialogTitle>
           <DialogDescription className="sr-only">
             Point your camera at a NovaChat QR code, or paste a friend code below.
           </DialogDescription>
