@@ -64,6 +64,7 @@ function AppShell() {
 
   const tabs: { id: TabId; label: string; icon: typeof MessageCircle }[] = [
     { id: "chats", label: "Chats", icon: MessageCircle },
+    { id: "calls", label: "Calls", icon: Phone },
     { id: "friends", label: "Friends", icon: Users },
     { id: "ai", label: "AI", icon: Sparkles },
     { id: "profile", label: "Profile", icon: User },
