@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
 import { openVoiceCall } from "@/components/novachat/IncomingCallListener";
@@ -16,6 +16,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
+import { cn } from "@/lib/utils";
+
+const CALL_MSG_PREFIX = "[[novacall]]";
+type CallLogPayload = {
+  kind: "call";
+  status: "ended" | "missed" | "declined";
+  reason: string;
+  duration: number;
+  caller_id: string;
+  callee_id: string;
+  call_id: string;
+};
+function parseCallLog(content: string): CallLogPayload | null {
+  if (!content.startsWith(CALL_MSG_PREFIX)) return null;
+  try {
+    const p = JSON.parse(content.slice(CALL_MSG_PREFIX.length)) as CallLogPayload;
+    return p.kind === "call" ? p : null;
+  } catch { return null; }
+}
+function fmtDuration(s: number) {
+  if (s <= 0) return "0s";
+  const m = Math.floor(s / 60), sec = s % 60;
+  if (m === 0) return `${sec}s`;
+  return `${m}m ${sec.toString().padStart(2, "0")}s`;
+}
+
 
 export function ChatView({
   me, peer, online, onBack,
@@ -225,6 +251,65 @@ export function ChatView({
             const prev = messages[i - 1];
             const tail = !prev || prev.sender_id !== m.sender_id;
             const rx = reactionsByMsg.get(m.id);
+
+            const call = parseCallLog(m.content);
+            if (call) {
+              const iAmCaller = call.caller_id === me.id;
+              const missed = call.status === "missed" || (call.status === "declined" && !iAmCaller && call.duration === 0);
+              const declined = call.status === "declined";
+              const noAnswer = call.status === "missed";
+              let label: string;
+              let Icon = PhoneOff;
+              let tone = "text-muted-foreground";
+              if (call.duration > 0) {
+                label = `${iAmCaller ? "Outgoing" : "Incoming"} voice call · ${fmtDuration(call.duration)}`;
+                Icon = iAmCaller ? PhoneOutgoing : PhoneIncoming;
+              } else if (noAnswer) {
+                label = iAmCaller ? "No answer" : "Missed voice call";
+                Icon = PhoneMissed;
+                tone = iAmCaller ? "text-muted-foreground" : "text-destructive";
+              } else if (declined) {
+                label = iAmCaller ? "Call declined" : "You declined the call";
+                Icon = PhoneOff;
+              } else {
+                label = "Call ended";
+              }
+              const deleteMessage = async () => {
+                const { error } = await supabase.from("messages").delete().eq("id", m.id);
+                if (error) toast.error(error.message);
+              };
+              const callBack = async () => {
+                try {
+                  const r = await startCallFn({ data: { calleeId: peer.id } });
+                  openVoiceCall({ callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing" });
+                } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
+              };
+              return (
+                <div key={m.id} className="flex justify-center my-2">
+                  <div className="flex items-center gap-2 bg-card/80 border border-border rounded-full pl-3 pr-1 py-1 shadow-sm text-xs">
+                    <Icon className={cn("size-4", tone)} />
+                    <span className={cn("font-medium", missed && !iAmCaller && "text-destructive")}>{label}</span>
+                    <span className="text-muted-foreground">· {formatTime(m.created_at)}</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button aria-label="Call log options" className="p-1 rounded-full hover:bg-muted text-muted-foreground">
+                          <MoreVertical className="size-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={callBack}>
+                          <Phone className="size-4 mr-2" /> Call back
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
+                          <Trash2 className="size-4 mr-2" /> Delete log
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={m.id} className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
                 <div className="flex flex-col items-stretch max-w-[80%] sm:max-w-[65%]">

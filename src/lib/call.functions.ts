@@ -58,25 +58,49 @@ export const updateCallStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: call } = await supabase.from("calls")
-      .select("id, caller_id, callee_id, started_at").eq("id", data.callId).maybeSingle();
+      .select("id, caller_id, callee_id, started_at, status").eq("id", data.callId).maybeSingle();
     if (!call) throw new Error("Call not found");
     if (call.caller_id !== userId && call.callee_id !== userId) throw new Error("Not a participant");
+
+    const isTerminal = data.status === "ended" || data.status === "missed" || data.status === "declined";
+    const wasTerminal = call.status === "ended" || call.status === "missed" || call.status === "declined";
 
     const patch: {
       status: string; updated_at: string;
       started_at?: string; ended_at?: string; ended_reason?: string; duration_seconds?: number;
     } = { status: data.status, updated_at: new Date().toISOString() };
     if (data.status === "accepted" && !call.started_at) patch.started_at = new Date().toISOString();
-    if (data.status === "ended" || data.status === "missed" || data.status === "declined") {
+    let durationSeconds = 0;
+    if (isTerminal) {
       const endedAt = new Date();
       patch.ended_at = endedAt.toISOString();
       patch.ended_reason = data.reason ?? data.status;
       if (call.started_at) {
-        patch.duration_seconds = Math.max(0, Math.floor((endedAt.getTime() - new Date(call.started_at).getTime()) / 1000));
+        durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - new Date(call.started_at).getTime()) / 1000));
+        patch.duration_seconds = durationSeconds;
       }
     }
     const { error } = await supabase.from("calls").update(patch).eq("id", data.callId);
     if (error) throw new Error(error.message);
+
+    // Insert a call-log system message once per call, visible to both sides.
+    if (isTerminal && !wasTerminal) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const payload = {
+        kind: "call" as const,
+        status: data.status,
+        reason: data.reason ?? data.status,
+        duration: durationSeconds,
+        caller_id: call.caller_id,
+        callee_id: call.callee_id,
+        call_id: call.id,
+      };
+      await supabaseAdmin.from("messages").insert({
+        sender_id: call.caller_id,
+        receiver_id: call.callee_id,
+        content: `[[novacall]]${JSON.stringify(payload)}`,
+      });
+    }
     return { ok: true };
   });
 
