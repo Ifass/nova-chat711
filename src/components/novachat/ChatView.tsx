@@ -17,6 +17,31 @@ import {
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
 
+const CALL_MSG_PREFIX = "[[novacall]]";
+type CallLogPayload = {
+  kind: "call";
+  status: "ended" | "missed" | "declined";
+  reason: string;
+  duration: number;
+  caller_id: string;
+  callee_id: string;
+  call_id: string;
+};
+function parseCallLog(content: string): CallLogPayload | null {
+  if (!content.startsWith(CALL_MSG_PREFIX)) return null;
+  try {
+    const p = JSON.parse(content.slice(CALL_MSG_PREFIX.length)) as CallLogPayload;
+    return p.kind === "call" ? p : null;
+  } catch { return null; }
+}
+function fmtDuration(s: number) {
+  if (s <= 0) return "0s";
+  const m = Math.floor(s / 60), sec = s % 60;
+  if (m === 0) return `${sec}s`;
+  return `${m}m ${sec.toString().padStart(2, "0")}s`;
+}
+
+
 export function ChatView({
   me, peer, online, onBack,
 }: {
