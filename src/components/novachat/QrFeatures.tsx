@@ -223,18 +223,32 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
         };
 
         const startWith = async (): Promise<string | null> => {
-          // First try requested facingMode
+          // html5-qrcode expects facingMode as a plain string, NOT { ideal }
+          // ({ideal} throws "'facingMode' should be string or object with exact as key.")
           try {
-            await inst.start({ facingMode: { ideal: facing } }, config, onDecoded, () => {});
+            await inst.start({ facingMode }, config, onDecoded, () => {});
+            console.log("[QR] started with facingMode:", facing);
             return null;
           } catch (e) {
             console.warn("[QR] facingMode start failed, falling back to deviceId:", e);
+            // The failed start may have left the instance mid-transition. Reset it.
+            try {
+              const st = inst.getState();
+              if (st === 2 || st === 3) await inst.stop();
+            } catch { /* noop */ }
+            try { inst.clear(); } catch { /* noop */ }
           }
           if (!camList.length) throw new Error("No cameras available");
           const rear = camList.find((c) => /back|rear|environment/i.test(c.label));
           const front = camList.find((c) => /front|user|face/i.test(c.label));
-          const pick = facing === "environment" ? (rear ?? camList[camList.length - 1]) : (front ?? camList[0]);
-          await inst.start(pick.id, config, onDecoded, () => {});
+          const pick = facing === "environment"
+            ? (rear ?? camList[camList.length - 1])
+            : (front ?? camList[0]);
+          // Rebuild instance to guarantee a clean state after the failed attempt.
+          const fresh = new Html5Qrcode("nc-qr-reader", { verbose: false });
+          scannerRef.current = fresh;
+          await fresh.start(pick.id, config, onDecoded, () => {});
+          console.log("[QR] started with deviceId:", pick.id, pick.label);
           return pick.id;
         };
 
