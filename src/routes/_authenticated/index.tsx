@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X } from "lucide-react";
+import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { usePresence } from "@/lib/use-presence";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { initials, type ProfileLite } from "@/lib/novachat-types";
 import { ChatsTab } from "@/components/novachat/ChatsTab";
 import { FriendsTab } from "@/components/novachat/FriendsTab";
+import { CallsTab } from "@/components/novachat/CallsTab";
 import { AITab } from "@/components/novachat/AITab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
