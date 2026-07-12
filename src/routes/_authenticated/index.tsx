@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: AppShell,
 });
 
-type TabId = "chats" | "friends" | "ai" | "profile";
+type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
 
 function AppShell() {
   const navigate = useNavigate();
