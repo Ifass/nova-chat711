@@ -226,7 +226,7 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
           // html5-qrcode expects facingMode as a plain string, NOT { ideal }
           // ({ideal} throws "'facingMode' should be string or object with exact as key.")
           try {
-            await inst.start({ facingMode }, config, onDecoded, () => {});
+            await inst.start({ facingMode: facing }, config, onDecoded, () => {});
             console.log("[QR] started with facingMode:", facing);
             return null;
           } catch (e) {
