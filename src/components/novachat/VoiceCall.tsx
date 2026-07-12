@@ -50,7 +50,15 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     return () => clearInterval(i);
   }, [status]);
 
+  const cancelledRef = useRef(false);
+
   const connect = async (tk: string) => {
+    if (cancelledRef.current) return;
+    // Reuse existing room if a previous attempt already created one
+    if (roomRef.current) {
+      try { await roomRef.current.disconnect(); } catch { /* ignore */ }
+      roomRef.current = null;
+    }
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
     room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, _p: RemoteParticipant) => {
@@ -63,19 +71,37 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
       if (s === ConnectionState.Connected) setStatus("connected");
       if (s === ConnectionState.Disconnected) setStatus((cur) => cur === "ended" ? cur : "ended");
     });
-    await room.connect(url, tk);
-    await room.localParticipant.setMicrophoneEnabled(true);
+    try {
+      await room.connect(url, tk);
+      if (cancelledRef.current) {
+        await room.disconnect();
+        return;
+      }
+      await room.localParticipant.setMicrophoneEnabled(true);
+    } catch (e) {
+      // Suppress the benign "Client initiated disconnect" that fires when
+      // React re-invokes the mount effect (StrictMode / fast refresh).
+      const msg = e instanceof Error ? e.message : String(e);
+      if (cancelledRef.current || /client initiated disconnect/i.test(msg)) return;
+      throw e;
+    }
   };
 
   // Caller: connect immediately. Callee: connects after accepting.
   useEffect(() => {
+    cancelledRef.current = false;
     if (role === "caller") {
       setStatus("connecting");
       connect(token).catch((e) => { toast.error(e.message); onClose(); });
     } else if (initialStatus === "accepted") {
       connect(token).catch((e) => { toast.error(e.message); onClose(); });
     }
-    return () => { roomRef.current?.disconnect(); };
+    return () => {
+      cancelledRef.current = true;
+      const r = roomRef.current;
+      roomRef.current = null;
+      if (r) { r.disconnect().catch(() => {}); }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
