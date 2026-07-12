@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
 import { openVoiceCall } from "@/components/novachat/IncomingCallListener";
