@@ -61,14 +61,19 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     }
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
+    const markConnectedIfPeerPresent = () => {
+      if (cancelledRef.current) return;
+      if (room.remoteParticipants.size > 0) setStatus("connected");
+    };
     room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, _p: RemoteParticipant) => {
       if (track.kind === Track.Kind.Audio && audioElRef.current) {
         track.attach(audioElRef.current);
       }
     });
+    room.on(RoomEvent.ParticipantConnected, () => markConnectedIfPeerPresent());
     room.on(RoomEvent.ParticipantDisconnected, () => endCall("remote_left"));
     room.on(RoomEvent.ConnectionStateChanged, (s) => {
-      if (s === ConnectionState.Connected) setStatus("connected");
+      if (s === ConnectionState.Connected) markConnectedIfPeerPresent();
       if (s === ConnectionState.Disconnected) setStatus((cur) => cur === "ended" ? cur : "ended");
     });
     try {
