@@ -22,11 +22,6 @@ export const startCall = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     if (data.calleeId === userId) throw new Error("Can't call yourself");
-    // Confirm friendship
-    const { data: fr } = await supabase.from("friends").select("id, status")
-      .or(`and(user_id.eq.${userId},friend_id.eq.${data.calleeId}),and(user_id.eq.${data.calleeId},friend_id.eq.${userId})`)
-      .eq("status", "accepted").limit(1).maybeSingle();
-    if (!fr) throw new Error("You can only call your friends");
 
     const roomName = `nova-${crypto.randomUUID()}`;
     const { data: call, error } = await supabase
