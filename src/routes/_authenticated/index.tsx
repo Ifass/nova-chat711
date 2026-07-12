@@ -102,7 +102,7 @@ function AppShell() {
       {/* List column */}
       <aside className={cn(
         "w-full md:w-80 lg:w-96 flex-col border-r border-border bg-card",
-        mobileChatOpen && activePeer ? "hidden md:flex" : "flex"
+        mobileChatOpen && (activePeer || tab === "ai") ? "hidden md:flex" : "flex"
       )}>
         <header className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
