@@ -51,6 +51,29 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     return () => clearInterval(i);
   }, [status]);
 
+  // Watch the call row: when either party terminates, tear down immediately
+  // on the other side (stops ringtone, vibration, room, dialog).
+  useEffect(() => {
+    const ch = supabase
+      .channel(`call-watch-${callId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "calls", filter: `id=eq.${callId}` },
+        (payload) => {
+          const s = (payload.new as { status?: string }).status;
+          if (s === "ended" || s === "declined" || s === "missed") {
+            setStatus("ended");
+            try { roomRef.current?.disconnect(); } catch { /* ignore */ }
+            roomRef.current = null;
+            setShowRating(false);
+            onClose();
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [callId, onClose]);
+
   // Ringtone (callee incoming) / ringback (caller waiting) — synthesized via Web Audio
   useEffect(() => {
     if (status !== "ringing" && status !== "connecting") return;
