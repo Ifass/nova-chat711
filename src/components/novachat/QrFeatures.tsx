@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, Share2, Copy, Check, Camera, X, RefreshCw, SwitchCamera, ExternalLink } from "lucide-react";
+import { QrCode, Share2, Copy, Check, Camera, RefreshCw, SwitchCamera, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -300,12 +300,7 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
       </DialogTrigger>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            Scan a friend's QR
-            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground" aria-label="Close">
-              <X className="size-4" />
-            </button>
-          </DialogTitle>
+          <DialogTitle>Scan a friend's QR</DialogTitle>
           <DialogDescription className="sr-only">
             Point your camera at a NovaChat QR code, or paste a friend code below.
           </DialogDescription>
