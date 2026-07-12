@@ -69,8 +69,12 @@ export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">Share this so others can find you.</p>
+      </div>
+
       {/* Theme */}
       <ThemeSection />
+
+
 
 
 
