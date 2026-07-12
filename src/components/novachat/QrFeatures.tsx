@@ -206,7 +206,13 @@ export function QrScanDialog({ me, onAdded }: { me: ProfileLite; onAdded: () => 
           </DialogTitle>
         </DialogHeader>
         <div id="nc-qr-reader" className="w-full aspect-square rounded-xl overflow-hidden bg-black/80" />
-        {!scanning && <p className="text-xs text-center text-muted-foreground">Point your camera at the QR code…</p>}
+        {camError ? (
+          <p className="text-xs text-center text-destructive px-2">{camError}</p>
+        ) : !scanning ? (
+          <p className="text-xs text-center text-muted-foreground">Opening camera… allow access when prompted.</p>
+        ) : (
+          <p className="text-xs text-center text-muted-foreground">Point your camera at the QR code…</p>
+        )}
         <form onSubmit={onManual} className="flex gap-2 pt-2">
           <Input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="…or paste code (ABC-1234)" />
           <Button type="submit">Add</Button>
