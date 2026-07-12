@@ -135,3 +135,43 @@ export function ProfileTab({ profile, onUpdated }: { profile: Profile; onUpdated
     </div>
   );
 }
+
+function ThemeSection() {
+  const { theme, setTheme } = useTheme();
+  const options: { value: Theme; label: string; icon: typeof Sun; hint?: string }[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon, hint: "Default" },
+    { value: "system", label: "System", icon: Monitor },
+  ];
+  return (
+    <div className="space-y-2">
+      <Label>Theme</Label>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((o) => {
+          const selected = theme === o.value;
+          const Icon = o.icon;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setTheme(o.value)}
+              aria-pressed={selected}
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 bg-card transition-all",
+                selected
+                  ? "border-primary ring-2 ring-primary/30 text-primary"
+                  : "border-border hover:border-primary/50 text-foreground/80"
+              )}
+            >
+              <Icon className="size-5" />
+              <span className="text-xs font-medium">{o.label}</span>
+              {o.hint && <span className="text-[10px] text-muted-foreground">{o.hint}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">Choose how NovaChat looks. System follows your device.</p>
+    </div>
+  );
+}
+
