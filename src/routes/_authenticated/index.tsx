@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X } from "lucide-react";
+import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { usePresence } from "@/lib/use-presence";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { initials, type ProfileLite } from "@/lib/novachat-types";
 import { ChatsTab } from "@/components/novachat/ChatsTab";
 import { FriendsTab } from "@/components/novachat/FriendsTab";
+import { CallsTab } from "@/components/novachat/CallsTab";
 import { AITab } from "@/components/novachat/AITab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: AppShell,
 });
 
-type TabId = "chats" | "friends" | "ai" | "profile";
+type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
 
 function AppShell() {
   const navigate = useNavigate();
@@ -63,6 +64,7 @@ function AppShell() {
 
   const tabs: { id: TabId; label: string; icon: typeof MessageCircle }[] = [
     { id: "chats", label: "Chats", icon: MessageCircle },
+    { id: "calls", label: "Calls", icon: Phone },
     { id: "friends", label: "Friends", icon: Users },
     { id: "ai", label: "AI", icon: Sparkles },
     { id: "profile", label: "Profile", icon: User },
@@ -126,6 +128,9 @@ function AppShell() {
           {tab === "chats" && (
             <ChatsTab me={profile} online={online} activePeerId={activePeer?.id} onOpen={openChat} />
           )}
+          {tab === "calls" && (
+            <CallsTab me={profile} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
+          )}
           {tab === "friends" && (
             <FriendsTab me={profile} online={online} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
           )}
@@ -138,7 +143,7 @@ function AppShell() {
         </div>
 
         {/* Mobile bottom tab bar */}
-        <nav className="md:hidden h-16 border-t border-border bg-sidebar grid grid-cols-4">
+        <nav className="md:hidden h-16 border-t border-border bg-sidebar grid grid-cols-5">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -179,7 +184,7 @@ function AppShell() {
 }
 
 function tabLabel(t: TabId) {
-  return t === "chats" ? "Chats" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : "Profile";
+  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : "Profile";
 }
 
 function EmptyChatState() {
