@@ -124,9 +124,7 @@ function AuthPage() {
     <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-accent/30 to-primary/10">
       <div className="w-full max-w-md">
         <Link to="/auth" className="flex items-center justify-center gap-2 mb-8">
-          <div className="size-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/30">
-            <MessageCircle className="size-6" />
-          </div>
+          <NovaLogo className="size-12 drop-shadow-lg" />
           <span className="text-3xl font-bold tracking-tight">NovaChat</span>
         </Link>
 
