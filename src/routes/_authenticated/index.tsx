@@ -107,7 +107,12 @@ function AppShell() {
       )}>
         <header className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
-            <NovaLogo className="size-9 rounded-full shrink-0" />
+            <div className="flex flex-col items-center gap-0.5 shrink-0">
+              <NovaLogo className="size-[46px] rounded-full" />
+              <span className="text-[8px] font-semibold leading-none tracking-[1.5px] text-muted-foreground uppercase">
+                NOVA CHAT
+              </span>
+            </div>
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">{tabLabel(tab)}</div>
               <div className="text-xs text-muted-foreground truncate">@{profile.username}</div>
