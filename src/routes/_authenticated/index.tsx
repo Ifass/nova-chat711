@@ -123,7 +123,7 @@ function AppShell() {
           </Button>
         </header>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden pb-24 md:pb-0">
           {tab === "chats" && (
             <ChatsTab me={profile} online={online} activePeerId={activePeer?.id} onOpen={openChat} />
           )}
@@ -140,16 +140,24 @@ function AppShell() {
             <ProfileTab profile={profile} onUpdated={refreshProfile} />
           )}
         </div>
+      </aside>
 
-        {/* Mobile bottom tab bar */}
-        <nav className="md:hidden h-16 border-t border-border bg-sidebar grid grid-cols-5">
+      {/* Floating mobile bottom tab bar (taskbar-style, always visible) */}
+      {!(mobileChatOpen && (activePeer || tab === "ai")) && (
+        <nav
+          className="md:hidden fixed bottom-3 left-3 right-3 z-50 h-16 rounded-2xl border border-border/60 bg-sidebar/80 backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)] grid grid-cols-5 px-1"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          aria-label="Primary mobile"
+        >
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setActivePeer(null); setMobileChatOpen(false); }}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 text-xs",
-                tab === t.id ? "text-primary" : "text-muted-foreground"
+                "flex flex-col items-center justify-center gap-0.5 text-xs rounded-xl mx-0.5 my-1 transition-colors",
+                tab === t.id
+                  ? "text-primary bg-primary/15"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <t.icon className="size-5" />
@@ -157,7 +165,7 @@ function AppShell() {
             </button>
           ))}
         </nav>
-      </aside>
+      )}
 
       {/* Main detail */}
       <main className={cn(
