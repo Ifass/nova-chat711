@@ -6,10 +6,9 @@ type Props = React.SVGProps<SVGSVGElement> & {
 };
 
 /**
- * NovaChat brand logo.
- * Rounded-square tile in teal with a speech-bubble outline and a sparkle —
- * fully SVG, retina-crisp, theme-agnostic (colors are baked in, not tokenized,
- * so the brand mark looks identical in light and dark modes).
+ * NovaChat brand logo — squircle tile in teal with a circular speech
+ * bubble (pointed tail toward lower-left) and a 4-point sparkle at the
+ * lower-right. Fully SVG, retina-crisp, theme-agnostic.
  */
 export const NovaLogo = forwardRef<SVGSVGElement, Props>(function NovaLogo(
   { title = "NovaChat", className, ...rest },
@@ -28,36 +27,36 @@ export const NovaLogo = forwardRef<SVGSVGElement, Props>(function NovaLogo(
     >
       {title ? <title>{title}</title> : null}
       <defs>
-        {/* Tile body: soft radial from lighter center to deeper edges */}
-        <radialGradient id="nova-tile" cx="50%" cy="42%" r="72%">
-          <stop offset="0%" stopColor="#3E9E7F" />
-          <stop offset="55%" stopColor="#2F8368" />
-          <stop offset="100%" stopColor="#1F5F4B" />
-        </radialGradient>
-        {/* Top sheen */}
-        <linearGradient id="nova-sheen" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
-          <stop offset="45%" stopColor="#ffffff" stopOpacity="0.04" />
+        {/* Tile body: soft top-to-bottom teal with a hint of radial depth */}
+        <linearGradient id="nova-tile" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#4CA98A" />
+          <stop offset="55%" stopColor="#348870" />
+          <stop offset="100%" stopColor="#256B58" />
+        </linearGradient>
+        {/* Top sheen (very subtle glossy highlight) */}
+        <linearGradient id="nova-sheen" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
+          <stop offset="40%" stopColor="#ffffff" stopOpacity="0.04" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
-        {/* Bubble stroke: warm off-white with a subtle top-to-bottom fade */}
+        {/* Bubble/sparkle stroke: warm off-white with a subtle vertical fade */}
         <linearGradient id="nova-stroke" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#F6F1E4" />
-          <stop offset="100%" stopColor="#DFD6C1" />
+          <stop offset="100%" stopColor="#D8CFB8" />
         </linearGradient>
-        {/* Inner shadow inside the tile */}
+        {/* Inner shadow inside the tile edges */}
         <filter id="nova-inner" x="-10%" y="-10%" width="120%" height="120%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
-          <feOffset dx="0" dy="2" result="off" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" />
+          <feOffset dx="0" dy="1.5" result="off" />
           <feComposite in="off" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="inner" />
           <feColorMatrix in="inner" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0" />
         </filter>
-        {/* Soft drop shadow for the bubble */}
+        {/* Soft drop shadow for the bubble and sparkle */}
         <filter id="nova-drop" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" />
-          <feOffset dx="0" dy="1.5" result="o" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.3" />
+          <feOffset dx="0" dy="1.8" result="o" />
           <feComponentTransfer in="o" result="s">
-            <feFuncA type="linear" slope="0.35" />
+            <feFuncA type="linear" slope="0.38" />
           </feComponentTransfer>
           <feMerge>
             <feMergeNode in="s" />
@@ -66,51 +65,40 @@ export const NovaLogo = forwardRef<SVGSVGElement, Props>(function NovaLogo(
         </filter>
       </defs>
 
-      {/* Tile */}
-      <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#nova-tile)" />
-      <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#nova-tile)" filter="url(#nova-inner)" />
+      {/* Squircle tile (iOS-style rounded corners) */}
+      <rect x="4" y="4" width="120" height="120" rx="30" ry="30" fill="url(#nova-tile)" />
+      <rect x="4" y="4" width="120" height="120" rx="30" ry="30" fill="url(#nova-tile)" filter="url(#nova-inner)" />
       {/* Top gloss */}
-      <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#nova-sheen)" />
-      {/* Hairline border */}
+      <rect x="4" y="4" width="120" height="120" rx="30" ry="30" fill="url(#nova-sheen)" />
+      {/* Hairline edge */}
       <rect
-        x="6.5"
-        y="6.5"
-        width="115"
-        height="115"
-        rx="27.5"
+        x="4.5"
+        y="4.5"
+        width="119"
+        height="119"
+        rx="29.5"
+        ry="29.5"
         fill="none"
         stroke="#000"
-        strokeOpacity="0.18"
+        strokeOpacity="0.20"
       />
 
-      {/* Speech bubble: circle with a small tail on the lower-left */}
-      <g filter="url(#nova-drop)">
-        <path
-          d="M64 30
-             c 19.33 0 35 14.33 35 32
-             c 0 17.67 -15.67 32 -35 32
-             c -3.6 0 -7.05 -0.5 -10.25 -1.42
-             L 38.5 100.5
-             c -1.6 0.7 -3.3 -1 -2.55 -2.6
-             l 5.1 -11.02
-             C 34.4 81.06 29 71.9 29 62
-             c 0 -17.67 15.67 -32 35 -32 z"
-          fill="none"
-          stroke="url(#nova-stroke)"
-          strokeWidth="7.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+      {/* Speech bubble: clean circle + pointed triangular tail toward lower-left */}
+      <g filter="url(#nova-drop)" fill="none" stroke="url(#nova-stroke)" strokeWidth="6.5" strokeLinejoin="round" strokeLinecap="round">
+        {/* Circle body */}
+        <circle cx="66" cy="58" r="30" />
+        {/* Tail: a small triangle attached to the lower-left of the bubble */}
+        <path d="M46.5 82 L34 96 L58 78" />
       </g>
 
-      {/* Sparkle inside bubble, bottom-right */}
+      {/* 4-point sparkle at lower-right, below the bubble */}
       <g filter="url(#nova-drop)">
         <path
-          d="M82 74
-             C 82 80 84 82 90 82
-             C 84 82 82 84 82 90
-             C 82 84 80 82 74 82
-             C 80 82 82 80 82 74 Z"
+          d="M78 84
+             C 78 90.5 80.5 93 87 93
+             C 80.5 93 78 95.5 78 102
+             C 78 95.5 75.5 93 69 93
+             C 75.5 93 78 90.5 78 84 Z"
           fill="url(#nova-stroke)"
         />
       </g>
