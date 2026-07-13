@@ -15,6 +15,7 @@ import { AITab } from "@/components/novachat/AITab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
 import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
+import { NovaLogo } from "@/components/NovaLogo";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
