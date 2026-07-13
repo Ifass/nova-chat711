@@ -107,12 +107,7 @@ function AppShell() {
       )}>
         <header className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="size-9">
-              <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.display_name} />
-              <AvatarFallback className="bg-primary/15 text-primary text-sm font-medium">
-                {initials(profile.display_name)}
-              </AvatarFallback>
-            </Avatar>
+            <NovaLogo className="size-9 rounded-full shrink-0" />
             <div className="min-w-0">
               <div className="font-semibold text-sm truncate">{tabLabel(tab)}</div>
               <div className="text-xs text-muted-foreground truncate">@{profile.username}</div>
