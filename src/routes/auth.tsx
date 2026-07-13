@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Eye, EyeOff, Mail } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
+import { NovaLogo } from "@/components/NovaLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
