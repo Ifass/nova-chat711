@@ -15,6 +15,7 @@ import { AITab } from "@/components/novachat/AITab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
 import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
+import { NovaLogo } from "@/components/NovaLogo";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -75,9 +76,7 @@ function AppShell() {
       <h1 className="sr-only">NovaChat — your messaging dashboard</h1>
       {/* Rail (desktop) */}
       <nav className="hidden md:flex w-16 lg:w-20 flex-col items-center py-4 bg-sidebar border-r border-sidebar-border" aria-label="Primary">
-        <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center mb-6 shadow-md shadow-primary/30">
-          <MessageCircle className="size-5" />
-        </div>
+        <NovaLogo className="size-10 mb-6 drop-shadow-md" />
         <div className="flex flex-col gap-2 flex-1">
           {tabs.map((t) => (
             <button
