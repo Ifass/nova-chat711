@@ -86,7 +86,7 @@ export const NovaLogo = forwardRef<SVGSVGElement, Props>(function NovaLogo(
       {/* Speech bubble: clean circle + pointed triangular tail toward lower-left */}
       <g filter="url(#nova-drop)">
         <path
-          d="M 37.8 68.3 L 28 100 L 55.7 86.2 A 30 30 0 1 1 37.8 68.3 Z"
+          d="M 37.8 68.3 L 28 100 L 55.7 86.2 A 30 30 0 1 0 37.8 68.3 Z"
           fill="none"
           stroke="url(#nova-stroke)"
           strokeWidth="6.5"
