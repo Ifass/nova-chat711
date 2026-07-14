@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone } from "lucide-react";
+import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { usePresence } from "@/lib/use-presence";
@@ -12,6 +12,7 @@ import { ChatsTab } from "@/components/novachat/ChatsTab";
 import { FriendsTab } from "@/components/novachat/FriendsTab";
 import { CallsTab } from "@/components/novachat/CallsTab";
 import { AITab } from "@/components/novachat/AITab";
+import { OpenChatTab } from "@/components/novachat/OpenChatTab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
 import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: AppShell,
 });
 
-type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
+type TabId = "chats" | "calls" | "friends" | "ai" | "openchat" | "profile";
 
 function AppShell() {
   const navigate = useNavigate();
@@ -68,6 +69,7 @@ function AppShell() {
     { id: "calls", label: "Calls", icon: Phone },
     { id: "friends", label: "Friends", icon: Users },
     { id: "ai", label: "AI", icon: Sparkles },
+    { id: "openchat", label: "OpenChat", icon: Bot },
     { id: "profile", label: "Profile", icon: User },
   ];
 
@@ -135,6 +137,9 @@ function AppShell() {
           {tab === "ai" && (
             <AISidePanel onOpen={() => setMobileChatOpen(true)} />
           )}
+          {tab === "openchat" && (
+            <OpenChatSidePanel onOpen={() => setMobileChatOpen(true)} />
+          )}
           {tab === "profile" && (
             <ProfileTab profile={profile} onUpdated={refreshProfile} />
           )}
@@ -142,9 +147,9 @@ function AppShell() {
       </aside>
 
       {/* Floating mobile bottom tab bar (taskbar-style, always visible) */}
-      {!(mobileChatOpen && (activePeer || tab === "ai")) && (
+      {!(mobileChatOpen && (activePeer || tab === "ai" || tab === "openchat")) && (
         <nav
-          className="md:hidden fixed bottom-3 left-3 right-3 z-50 h-16 rounded-2xl border border-border/60 bg-sidebar/80 backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)] grid grid-cols-5 px-1"
+          className="md:hidden fixed bottom-3 left-3 right-3 z-50 h-16 rounded-2xl border border-border/60 bg-sidebar/80 backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)] grid grid-cols-6 px-1"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Primary mobile"
         >
@@ -173,6 +178,8 @@ function AppShell() {
       )}>
         {tab === "ai" ? (
           <AITab onBack={() => setMobileChatOpen(false)} />
+        ) : tab === "openchat" ? (
+          <OpenChatTab onBack={() => setMobileChatOpen(false)} />
         ) : activePeer ? (
           <ChatView
             me={profile}
@@ -190,7 +197,7 @@ function AppShell() {
 }
 
 function tabLabel(t: TabId) {
-  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : "Profile";
+  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : t === "openchat" ? "OpenChat AI" : "Profile";
 }
 
 function EmptyChatState() {
@@ -228,6 +235,30 @@ function AISidePanel({ onOpen }: { onOpen: () => void }) {
       </button>
       <p className="text-xs text-muted-foreground mt-4 px-1">
         Your personal AI assistant. Chats are private to your account.
+      </p>
+    </div>
+  );
+}
+
+function OpenChatSidePanel({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="p-4">
+      <button
+        onClick={onOpen}
+        className="w-full text-left p-4 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 hover:from-emerald-500/20 transition-colors border border-emerald-500/20"
+      >
+        <div className="flex items-center gap-3">
+          <div className="size-12 rounded-xl bg-emerald-600 text-white grid place-items-center">
+            <Bot className="size-6" />
+          </div>
+          <div>
+            <div className="font-semibold">OpenChat AI</div>
+            <div className="text-xs text-muted-foreground">Ask anything — powered by OpenAI</div>
+          </div>
+        </div>
+      </button>
+      <p className="text-xs text-muted-foreground mt-4 px-1">
+        A second AI assistant. Chats are private to your account.
       </p>
     </div>
   );
