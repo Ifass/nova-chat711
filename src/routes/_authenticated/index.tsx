@@ -12,6 +12,7 @@ import { ChatsTab } from "@/components/novachat/ChatsTab";
 import { FriendsTab } from "@/components/novachat/FriendsTab";
 import { CallsTab } from "@/components/novachat/CallsTab";
 import { AITab } from "@/components/novachat/AITab";
+import { OpenChatTab } from "@/components/novachat/OpenChatTab";
 import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
 import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
