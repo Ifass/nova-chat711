@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone } from "lucide-react";
+import { MessageCircle, Users, Sparkles, User, LogOut, Menu, X, Phone, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
 import { usePresence } from "@/lib/use-presence";
