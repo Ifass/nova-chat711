@@ -71,7 +71,6 @@ function AppShell() {
     { id: "calls", label: "Calls", icon: Phone },
     { id: "friends", label: "Friends", icon: Users },
     { id: "ai", label: "AI", icon: Sparkles },
-    { id: "openchat", label: "OpenChat", icon: Bot },
     { id: "profile", label: "Profile", icon: User },
   ];
 
