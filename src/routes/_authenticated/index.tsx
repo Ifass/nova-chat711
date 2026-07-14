@@ -178,6 +178,8 @@ function AppShell() {
       )}>
         {tab === "ai" ? (
           <AITab onBack={() => setMobileChatOpen(false)} />
+        ) : tab === "openchat" ? (
+          <OpenChatTab onBack={() => setMobileChatOpen(false)} />
         ) : activePeer ? (
           <ChatView
             me={profile}
