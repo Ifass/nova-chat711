@@ -32,7 +32,8 @@ export const Route = createFileRoute("/_authenticated/")({
   component: AppShell,
 });
 
-type TabId = "chats" | "calls" | "friends" | "ai" | "openchat" | "profile";
+type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
+type AiMode = "nova" | "openchat";
 
 function AppShell() {
   const navigate = useNavigate();
