@@ -178,9 +178,11 @@ function AppShell() {
         mobileChatOpen ? "flex" : "hidden md:flex"
       )}>
         {tab === "ai" ? (
-          <AITab onBack={() => setMobileChatOpen(false)} />
-        ) : tab === "openchat" ? (
-          <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          aiMode === "openchat" ? (
+            <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          ) : (
+            <AITab onBack={() => setMobileChatOpen(false)} />
+          )
         ) : activePeer ? (
           <ChatView
             me={profile}
