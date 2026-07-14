@@ -77,8 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "NovaChat — Real-time chat & AI" },
       { name: "twitter:description", content: "NovaChat: modern real-time messaging with friend codes, typing indicators, read receipts, and a built-in AI assistant." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a1408798-a36f-401f-9c3f-98dd62007afd" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/a1408798-a36f-401f-9c3f-98dd62007afd" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/72e7feea-63eb-4e66-afc9-644c678cc277" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/72e7feea-63eb-4e66-afc9-644c678cc277" },
       { name: "google-site-verification", content: "xYFs94lt0Z8L_LI0pK96z8OWaK4XxjNayK3zQIJrNMk" },
     ],
     links: [
