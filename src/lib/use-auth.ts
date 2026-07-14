@@ -14,7 +14,7 @@ export type Profile = {
   email_verified_at: string | null;
 };
 
-const SELECT = "id, username, display_name, unique_code, avatar_url, email, bio, email_verified, email_verified_at";
+const SELECT = "id, username, display_name, unique_code, avatar_url, bio, email_verified, email_verified_at";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -52,7 +52,7 @@ export function useAuth() {
         .select(SELECT)
         .eq("id", user.id)
         .maybeSingle();
-      if (!cancel && data) setProfile(data as Profile);
+      if (!cancel && data) setProfile({ ...(data as Omit<Profile, "email">), email: user.email ?? null });
     };
     load();
     return () => {
@@ -71,7 +71,7 @@ export function useAuth() {
         .select(SELECT)
         .eq("id", user.id)
         .maybeSingle();
-      if (data) setProfile(data as Profile);
+      if (data) setProfile({ ...(data as Omit<Profile, "email">), email: user.email ?? null });
     },
   };
 }
