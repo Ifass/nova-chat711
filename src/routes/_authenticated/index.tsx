@@ -136,10 +136,10 @@ function AppShell() {
             <FriendsTab me={profile} online={online} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
           )}
           {tab === "ai" && (
-            <AISidePanel onOpen={() => setMobileChatOpen(true)} />
-          )}
-          {tab === "openchat" && (
-            <OpenChatSidePanel onOpen={() => setMobileChatOpen(true)} />
+            <AISidePanel
+              activeMode={aiMode}
+              onSelect={(m) => { setAiMode(m); setMobileChatOpen(true); }}
+            />
           )}
           {tab === "profile" && (
             <ProfileTab profile={profile} onUpdated={refreshProfile} />
