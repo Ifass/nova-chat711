@@ -240,5 +240,29 @@ function AISidePanel({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+function OpenChatSidePanel({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="p-4">
+      <button
+        onClick={onOpen}
+        className="w-full text-left p-4 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 hover:from-emerald-500/20 transition-colors border border-emerald-500/20"
+      >
+        <div className="flex items-center gap-3">
+          <div className="size-12 rounded-xl bg-emerald-600 text-white grid place-items-center">
+            <Bot className="size-6" />
+          </div>
+          <div>
+            <div className="font-semibold">OpenChat AI</div>
+            <div className="text-xs text-muted-foreground">Ask anything — powered by OpenAI</div>
+          </div>
+        </div>
+      </button>
+      <p className="text-xs text-muted-foreground mt-4 px-1">
+        A second AI assistant. Chats are private to your account.
+      </p>
+    </div>
+  );
+}
+
 // avoid unused import warnings
 void Menu; void X;
