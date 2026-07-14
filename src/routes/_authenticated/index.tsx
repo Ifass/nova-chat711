@@ -137,6 +137,9 @@ function AppShell() {
           {tab === "ai" && (
             <AISidePanel onOpen={() => setMobileChatOpen(true)} />
           )}
+          {tab === "openchat" && (
+            <OpenChatSidePanel onOpen={() => setMobileChatOpen(true)} />
+          )}
           {tab === "profile" && (
             <ProfileTab profile={profile} onUpdated={refreshProfile} />
           )}
