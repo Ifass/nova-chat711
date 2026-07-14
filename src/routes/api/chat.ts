@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { createClient } from "@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 
 const SYSTEM_PROMPT = `You are Nova, the built-in AI assistant inside NovaChat — a friendly 1:1 messaging app with real-time chat AND real-time voice calling.
@@ -29,9 +30,30 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const authHeader = request.headers.get("authorization") ?? "";
+        if (!authHeader.startsWith("Bearer ")) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+        const token = authHeader.slice(7).trim();
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+        if (!token || !supabaseUrl || !supabasePublishableKey) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+        const authClient = createClient(supabaseUrl, supabasePublishableKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+        if (claimsError || !claimsData?.claims?.sub) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+
         const body = (await request.json()) as { messages?: UIMessage[] };
         if (!Array.isArray(body.messages)) {
           return new Response("messages required", { status: 400 });
+        }
+        if (body.messages.length > 100) {
+          return new Response("too many messages", { status: 413 });
         }
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
