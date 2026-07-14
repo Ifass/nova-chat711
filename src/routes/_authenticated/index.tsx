@@ -200,7 +200,7 @@ function AppShell() {
 }
 
 function tabLabel(t: TabId) {
-  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : t === "openchat" ? "OpenChat AI" : "Profile";
+  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : "Profile";
 }
 
 function EmptyChatState() {
