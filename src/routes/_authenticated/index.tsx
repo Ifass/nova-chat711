@@ -39,6 +39,7 @@ function AppShell() {
   const navigate = useNavigate();
   const { user, profile, loading, refreshProfile } = useAuth();
   const [tab, setTab] = useState<TabId>("chats");
+  const [aiMode, setAiMode] = useState<AiMode>("nova");
   const [activePeer, setActivePeer] = useState<ProfileLite | null>(null);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const online = usePresence(user?.id);
