@@ -32,12 +32,14 @@ export const Route = createFileRoute("/_authenticated/")({
   component: AppShell,
 });
 
-type TabId = "chats" | "calls" | "friends" | "ai" | "openchat" | "profile";
+type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
+type AiMode = "nova" | "openchat";
 
 function AppShell() {
   const navigate = useNavigate();
   const { user, profile, loading, refreshProfile } = useAuth();
   const [tab, setTab] = useState<TabId>("chats");
+  const [aiMode, setAiMode] = useState<AiMode>("nova");
   const [activePeer, setActivePeer] = useState<ProfileLite | null>(null);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const online = usePresence(user?.id);
@@ -69,7 +71,6 @@ function AppShell() {
     { id: "calls", label: "Calls", icon: Phone },
     { id: "friends", label: "Friends", icon: Users },
     { id: "ai", label: "AI", icon: Sparkles },
-    { id: "openchat", label: "OpenChat", icon: Bot },
     { id: "profile", label: "Profile", icon: User },
   ];
 
@@ -135,10 +136,10 @@ function AppShell() {
             <FriendsTab me={profile} online={online} onOpenChat={(p) => { setTab("chats"); openChat(p); }} />
           )}
           {tab === "ai" && (
-            <AISidePanel onOpen={() => setMobileChatOpen(true)} />
-          )}
-          {tab === "openchat" && (
-            <OpenChatSidePanel onOpen={() => setMobileChatOpen(true)} />
+            <AISidePanel
+              activeMode={aiMode}
+              onSelect={(m) => { setAiMode(m); setMobileChatOpen(true); }}
+            />
           )}
           {tab === "profile" && (
             <ProfileTab profile={profile} onUpdated={refreshProfile} />
@@ -147,9 +148,9 @@ function AppShell() {
       </aside>
 
       {/* Floating mobile bottom tab bar (taskbar-style, always visible) */}
-      {!(mobileChatOpen && (activePeer || tab === "ai" || tab === "openchat")) && (
+      {!(mobileChatOpen && (activePeer || tab === "ai")) && (
         <nav
-          className="md:hidden fixed bottom-3 left-3 right-3 z-50 h-16 rounded-2xl border border-border/60 bg-sidebar/80 backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)] grid grid-cols-6 px-1"
+          className="md:hidden fixed bottom-3 left-3 right-3 z-50 h-16 rounded-2xl border border-border/60 bg-sidebar/80 backdrop-blur-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.45)] grid grid-cols-5 px-1"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Primary mobile"
         >
@@ -177,9 +178,11 @@ function AppShell() {
         mobileChatOpen ? "flex" : "hidden md:flex"
       )}>
         {tab === "ai" ? (
-          <AITab onBack={() => setMobileChatOpen(false)} />
-        ) : tab === "openchat" ? (
-          <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          aiMode === "openchat" ? (
+            <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          ) : (
+            <AITab onBack={() => setMobileChatOpen(false)} />
+          )
         ) : activePeer ? (
           <ChatView
             me={profile}
@@ -197,7 +200,7 @@ function AppShell() {
 }
 
 function tabLabel(t: TabId) {
-  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : t === "openchat" ? "OpenChat AI" : "Profile";
+  return t === "chats" ? "Chats" : t === "calls" ? "Call History" : t === "friends" ? "Friends" : t === "ai" ? "AI Assistant" : "Profile";
 }
 
 function EmptyChatState() {
@@ -216,12 +219,21 @@ function EmptyChatState() {
   );
 }
 
-function AISidePanel({ onOpen }: { onOpen: () => void }) {
+function AISidePanel({
+  activeMode,
+  onSelect,
+}: {
+  activeMode: AiMode;
+  onSelect: (m: AiMode) => void;
+}) {
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-3">
       <button
-        onClick={onOpen}
-        className="w-full text-left p-4 rounded-xl bg-gradient-to-br from-primary/15 to-accent hover:from-primary/20 transition-colors border border-primary/20"
+        onClick={() => onSelect("nova")}
+        className={cn(
+          "w-full text-left p-4 rounded-xl bg-gradient-to-br from-primary/15 to-accent hover:from-primary/20 transition-colors border",
+          activeMode === "nova" ? "border-primary/40 ring-1 ring-primary/30" : "border-primary/20",
+        )}
       >
         <div className="flex items-center gap-3">
           <div className="size-12 rounded-xl bg-primary text-primary-foreground grid place-items-center">
@@ -233,19 +245,13 @@ function AISidePanel({ onOpen }: { onOpen: () => void }) {
           </div>
         </div>
       </button>
-      <p className="text-xs text-muted-foreground mt-4 px-1">
-        Your personal AI assistant. Chats are private to your account.
-      </p>
-    </div>
-  );
-}
 
-function OpenChatSidePanel({ onOpen }: { onOpen: () => void }) {
-  return (
-    <div className="p-4">
       <button
-        onClick={onOpen}
-        className="w-full text-left p-4 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 hover:from-emerald-500/20 transition-colors border border-emerald-500/20"
+        onClick={() => onSelect("openchat")}
+        className={cn(
+          "w-full text-left p-4 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 hover:from-emerald-500/20 transition-colors border",
+          activeMode === "openchat" ? "border-emerald-500/50 ring-1 ring-emerald-500/30" : "border-emerald-500/20",
+        )}
       >
         <div className="flex items-center gap-3">
           <div className="size-12 rounded-xl bg-emerald-600 text-white grid place-items-center">
@@ -257,8 +263,9 @@ function OpenChatSidePanel({ onOpen }: { onOpen: () => void }) {
           </div>
         </div>
       </button>
-      <p className="text-xs text-muted-foreground mt-4 px-1">
-        A second AI assistant. Chats are private to your account.
+
+      <p className="text-xs text-muted-foreground mt-2 px-1">
+        Your personal AI assistants. Chats are private to your account.
       </p>
     </div>
   );
