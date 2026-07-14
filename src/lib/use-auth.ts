@@ -71,7 +71,7 @@ export function useAuth() {
         .select(SELECT)
         .eq("id", user.id)
         .maybeSingle();
-      if (data) setProfile(data as Profile);
+      if (data) setProfile({ ...(data as Omit<Profile, "email">), email: user.email ?? null });
     },
   };
 }
