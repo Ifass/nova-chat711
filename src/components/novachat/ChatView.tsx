@@ -88,9 +88,16 @@ export function ChatView({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      // Ensure realtime socket carries the current user JWT so RLS-filtered
+      // postgres_changes deliver INSERT/UPDATE/DELETE events to this client.
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (token) {
+        try { await supabase.realtime.setAuth(token); } catch { /* ignore */ }
+      }
       const { data } = await supabase
         .from("messages")
-        .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_request_status, expires_at")
+        .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_mode, image_request_status, expires_at")
         .or(`and(sender_id.eq.${me.id},receiver_id.eq.${peer.id}),and(sender_id.eq.${peer.id},receiver_id.eq.${me.id})`)
         .order("created_at", { ascending: true })
         .limit(500);
@@ -273,6 +280,24 @@ export function ChatView({
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined, mode } });
+      // Optimistic append for the sender so the message shows instantly even
+      // before the realtime echo lands. The realtime INSERT handler dedupes by id.
+      const nowIso = new Date().toISOString();
+      const optimistic: MessageRow = {
+        id: messageId,
+        sender_id: me.id,
+        receiver_id: peer.id,
+        content: caption ?? "",
+        caption: caption ?? null,
+        read_at: null,
+        created_at: nowIso,
+        message_type: "image_request",
+        attachments: uploaded as unknown as MessageRow["attachments"],
+        image_mode: mode,
+        image_request_status: mode === "preview_once" ? "pending" : "accepted",
+        expires_at: null,
+      } as MessageRow;
+      setMessages((prev) => (prev.some((x) => x.id === messageId) ? prev : [...prev, optimistic]));
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
       setPickerOpen(false);
