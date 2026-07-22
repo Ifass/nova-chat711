@@ -78,9 +78,7 @@ export async function compressInBackground(item: PreparedImage): Promise<Partial
       initialQuality: 0.85,
       fileType: item.mime === "image/png" ? "image/png" : "image/jpeg",
     });
-    const outFile: File = compressed instanceof File
-      ? compressed
-      : new File([compressed], item.originalFile.name, { type: compressed.type });
+    const outFile: File = compressed;
     const newUrl = URL.createObjectURL(outFile);
     URL.revokeObjectURL(item.previewUrl);
     return {
