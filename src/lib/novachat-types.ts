@@ -6,6 +6,10 @@ export type ProfileLite = {
   avatar_url: string | null;
 };
 
+export type Attachment = {
+  path: string; size: number; width: number; height: number; mime: string;
+};
+
 export type MessageRow = {
   id: string;
   sender_id: string;
@@ -13,6 +17,11 @@ export type MessageRow = {
   content: string;
   read_at: string | null;
   created_at: string;
+  message_type?: string | null;
+  attachments?: Attachment[] | null;
+  caption?: string | null;
+  image_request_status?: "pending" | "accepted" | "previewed" | "declined" | "expired" | null;
+  expires_at?: string | null;
 };
 
 export type FriendRow = {

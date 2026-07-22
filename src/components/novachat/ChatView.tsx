@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
+import { sendImageRequest } from "@/lib/image.functions";
 import { openVoiceCall } from "@/components/novachat/IncomingCallListener";
 import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,9 @@ import {
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
+import { prepareImage, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
+import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
+import { ImageMessage } from "@/components/novachat/ImageMessage";
 
 const CALL_MSG_PREFIX = "[[novacall]]";
 type CallLogPayload = {
@@ -57,11 +61,17 @@ export function ChatView({
   const [sending, setSending] = useState(false);
   const [calling, setCalling] = useState(false);
   const startCallFn = useServerFn(startCall);
+  const sendImageFn = useServerFn(sendImageRequest);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [pending, setPending] = useState<PreparedImage[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -72,7 +82,7 @@ export function ChatView({
     const load = async () => {
       const { data } = await supabase
         .from("messages")
-        .select("id, sender_id, receiver_id, content, read_at, created_at")
+        .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_request_status, expires_at")
         .or(`and(sender_id.eq.${me.id},receiver_id.eq.${peer.id}),and(sender_id.eq.${peer.id},receiver_id.eq.${me.id})`)
         .order("created_at", { ascending: true })
         .limit(500);
@@ -168,6 +178,85 @@ export function ChatView({
     if (error) { toast.error(error.message); setInput(content); }
   };
 
+  const addFiles = async (files: FileList | File[]) => {
+    const arr = Array.from(files);
+    if (pending.length + arr.length > MAX_COUNT) {
+      toast.error(`Max ${MAX_COUNT} images per message`);
+      return;
+    }
+    const prepared: PreparedImage[] = [];
+    for (const f of arr) {
+      try { prepared.push(await prepareImage(f)); }
+      catch (e) { toast.error(e instanceof Error ? e.message : `Skipped ${f.name}`); }
+    }
+    if (prepared.length) {
+      setPending((p) => [...p, ...prepared]);
+      setPickerOpen(true);
+    }
+  };
+
+  const sendImages = async (caption: string) => {
+    if (pending.length === 0) return;
+    setUploading(true);
+    setUploadPct(0);
+    const messageId = crypto.randomUUID();
+    const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
+    try {
+      for (let i = 0; i < pending.length; i++) {
+        const im = pending[i];
+        const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
+          contentType: im.mime, upsert: false, cacheControl: "3600",
+        });
+        if (error) throw new Error(error.message);
+        uploaded.push({ path, size: im.size, width: im.width, height: im.height, mime: im.mime });
+        setUploadPct(Math.round(((i + 1) / pending.length) * 100));
+      }
+      await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined } });
+      pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setPending([]);
+      setPickerOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+      // best-effort cleanup
+      if (uploaded.length) {
+        await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
+      }
+    } finally {
+      setUploading(false);
+      setUploadPct(0);
+    }
+  };
+
+  const removePending = (id: string) => {
+    setPending((p) => {
+      const gone = p.find((x) => x.id === id);
+      if (gone) URL.revokeObjectURL(gone.previewUrl);
+      const rest = p.filter((x) => x.id !== id);
+      if (rest.length === 0) setPickerOpen(false);
+      return rest;
+    });
+  };
+
+  // Paste image support
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (const it of items) {
+        if (it.kind === "file") {
+          const f = it.getAsFile();
+          if (f && ACCEPTED_TYPES.includes(f.type)) files.push(f);
+        }
+      }
+      if (files.length) { e.preventDefault(); addFiles(files); }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending.length]);
+
   const toggleReaction = async (messageId: string, emoji: string) => {
     const existing = reactions.find((r) => r.message_id === messageId && r.user_id === me.id && r.emoji === emoji);
     if (existing) {
@@ -251,6 +340,12 @@ export function ChatView({
             const prev = messages[i - 1];
             const tail = !prev || prev.sender_id !== m.sender_id;
             const rx = reactionsByMsg.get(m.id);
+
+            if (m.message_type === "image_request") {
+              return <ImageMessage key={m.id} msg={m} me={me} peer={peer} mine={mine} />;
+            }
+
+
 
             const call = parseCallLog(m.content);
             if (call) {
@@ -378,8 +473,22 @@ export function ChatView({
         </div>
       </div>
 
-      <form onSubmit={send} className="p-3 border-t border-border bg-card">
+      <form
+        onSubmit={send}
+        className="p-3 border-t border-border bg-card"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
+        onDrop={(e) => {
+          if (e.dataTransfer.files?.length) { e.preventDefault(); addFiles(e.dataTransfer.files); }
+        }}
+      >
         <div className="max-w-3xl mx-auto flex gap-2 items-center">
+          <input
+            ref={fileInputRef} type="file" accept={ACCEPTED_TYPES.join(",")} multiple className="hidden"
+            onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }}
+          />
+          <Button type="button" variant="ghost" size="icon" aria-label="Attach images" onClick={() => fileInputRef.current?.click()}>
+            <ImagePlus className="size-5" />
+          </Button>
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
             <PopoverTrigger asChild>
               <Button type="button" variant="ghost" size="icon" aria-label="Emoji picker"><Smile className="size-5" /></Button>
@@ -407,6 +516,20 @@ export function ChatView({
           </Button>
         </div>
       </form>
+
+      <ImagePreviewModal
+        open={pickerOpen}
+        images={pending}
+        onClose={() => {
+          pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+          setPending([]);
+          setPickerOpen(false);
+        }}
+        onRemove={removePending}
+        onSend={sendImages}
+        sending={uploading}
+        progress={uploadPct}
+      />
 
       <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
         <AlertDialogContent>

@@ -212,27 +212,54 @@ export type Database = {
       }
       messages: {
         Row: {
+          accepted_at: string | null
+          attachments: Json | null
+          caption: string | null
           content: string
           created_at: string
+          declined_at: string | null
+          expires_at: string | null
           id: string
+          image_request_status: string | null
+          message_type: string
+          previewed_at: string | null
           read_at: string | null
           receiver_id: string
+          requested_at: string | null
           sender_id: string
         }
         Insert: {
+          accepted_at?: string | null
+          attachments?: Json | null
+          caption?: string | null
           content: string
           created_at?: string
+          declined_at?: string | null
+          expires_at?: string | null
           id?: string
+          image_request_status?: string | null
+          message_type?: string
+          previewed_at?: string | null
           read_at?: string | null
           receiver_id: string
+          requested_at?: string | null
           sender_id: string
         }
         Update: {
+          accepted_at?: string | null
+          attachments?: Json | null
+          caption?: string | null
           content?: string
           created_at?: string
+          declined_at?: string | null
+          expires_at?: string | null
           id?: string
+          image_request_status?: string | null
+          message_type?: string
+          previewed_at?: string | null
           read_at?: string | null
           receiver_id?: string
+          requested_at?: string | null
           sender_id?: string
         }
         Relationships: []
