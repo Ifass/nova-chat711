@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { makePlaceholder, decodePreview, compressInBackground, validateFile, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
 import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
 import { ImageMessage } from "@/components/novachat/ImageMessage";
+import { ChatImageViewer, type GalleryItem } from "@/components/novachat/ChatImageViewer";
+import { getImageUrls } from "@/lib/image.functions";
 
 const CALL_MSG_PREFIX = "[[novacall]]";
 type CallLogPayload = {
