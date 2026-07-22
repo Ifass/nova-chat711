@@ -178,6 +178,85 @@ export function ChatView({
     if (error) { toast.error(error.message); setInput(content); }
   };
 
+  const addFiles = async (files: FileList | File[]) => {
+    const arr = Array.from(files);
+    if (pending.length + arr.length > MAX_COUNT) {
+      toast.error(`Max ${MAX_COUNT} images per message`);
+      return;
+    }
+    const prepared: PreparedImage[] = [];
+    for (const f of arr) {
+      try { prepared.push(await prepareImage(f)); }
+      catch (e) { toast.error(e instanceof Error ? e.message : `Skipped ${f.name}`); }
+    }
+    if (prepared.length) {
+      setPending((p) => [...p, ...prepared]);
+      setPickerOpen(true);
+    }
+  };
+
+  const sendImages = async (caption: string) => {
+    if (pending.length === 0) return;
+    setUploading(true);
+    setUploadPct(0);
+    const messageId = crypto.randomUUID();
+    const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
+    try {
+      for (let i = 0; i < pending.length; i++) {
+        const im = pending[i];
+        const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
+          contentType: im.mime, upsert: false, cacheControl: "3600",
+        });
+        if (error) throw new Error(error.message);
+        uploaded.push({ path, size: im.size, width: im.width, height: im.height, mime: im.mime });
+        setUploadPct(Math.round(((i + 1) / pending.length) * 100));
+      }
+      await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined } });
+      pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setPending([]);
+      setPickerOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+      // best-effort cleanup
+      if (uploaded.length) {
+        await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
+      }
+    } finally {
+      setUploading(false);
+      setUploadPct(0);
+    }
+  };
+
+  const removePending = (id: string) => {
+    setPending((p) => {
+      const gone = p.find((x) => x.id === id);
+      if (gone) URL.revokeObjectURL(gone.previewUrl);
+      const rest = p.filter((x) => x.id !== id);
+      if (rest.length === 0) setPickerOpen(false);
+      return rest;
+    });
+  };
+
+  // Paste image support
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (const it of items) {
+        if (it.kind === "file") {
+          const f = it.getAsFile();
+          if (f && ACCEPTED_TYPES.includes(f.type)) files.push(f);
+        }
+      }
+      if (files.length) { e.preventDefault(); addFiles(files); }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending.length]);
+
   const toggleReaction = async (messageId: string, emoji: string) => {
     const existing = reactions.find((r) => r.message_id === messageId && r.user_id === me.id && r.emoji === emoji);
     if (existing) {
