@@ -341,6 +341,12 @@ export function ChatView({
             const tail = !prev || prev.sender_id !== m.sender_id;
             const rx = reactionsByMsg.get(m.id);
 
+            if (m.message_type === "image_request") {
+              return <ImageMessage key={m.id} msg={m} me={me} peer={peer} mine={mine} />;
+            }
+
+
+
             const call = parseCallLog(m.content);
             if (call) {
               const iAmCaller = call.caller_id === me.id;
