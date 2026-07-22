@@ -222,18 +222,26 @@ export function ChatView({
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
+    // Wait for any in-flight decode/compression so we upload the optimized files.
+    await Promise.all(Array.from(processingRef.current.values()));
+    const items = pending.filter((p) => p.status !== "error");
+    if (items.length === 0) {
+      setUploading(false);
+      toast.error("No valid images to send");
+      return;
+    }
     const messageId = crypto.randomUUID();
     const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
-      for (let i = 0; i < pending.length; i++) {
-        const im = pending[i];
+      for (let i = 0; i < items.length; i++) {
+        const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
-        uploaded.push({ path, size: im.size, width: im.width, height: im.height, mime: im.mime });
-        setUploadPct(Math.round(((i + 1) / pending.length) * 100));
+        uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
+        setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined } });
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
@@ -241,7 +249,6 @@ export function ChatView({
       setPickerOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
-      // best-effort cleanup
       if (uploaded.length) {
         await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
       }
