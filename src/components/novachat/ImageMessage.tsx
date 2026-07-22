@@ -29,6 +29,7 @@ export function ImageMessage({
 
   const attachments: Att[] = Array.isArray(msg.attachments) ? msg.attachments : [];
   const status: string = msg.image_request_status ?? "pending";
+  const mode: "normal" | "preview_once" = msg.image_mode === "preview_once" ? "preview_once" : "normal";
   const totalSize = attachments.reduce((a, b) => a + (b.size ?? 0), 0);
 
   const displayName = mine ? me.display_name : peer.display_name;
