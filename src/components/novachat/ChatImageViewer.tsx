@@ -235,6 +235,12 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
         </button>
       </div>
 
+      {badge && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary/90 text-primary-foreground text-xs font-medium flex items-center gap-1.5 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          <Eye className="size-3.5" /> {badge}
+        </div>
+      )}
+
       {/* Image stage */}
       <div
         className="absolute inset-0 flex items-center justify-center overflow-hidden"
