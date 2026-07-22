@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Download, Loader2, AlertTriangle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Loader2, AlertTriangle, Eye } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
