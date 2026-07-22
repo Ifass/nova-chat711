@@ -273,6 +273,24 @@ export function ChatView({
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined, mode } });
+      // Optimistic append for the sender so the message shows instantly even
+      // before the realtime echo lands. The realtime INSERT handler dedupes by id.
+      const nowIso = new Date().toISOString();
+      const optimistic: MessageRow = {
+        id: messageId,
+        sender_id: me.id,
+        receiver_id: peer.id,
+        content: caption ?? "",
+        caption: caption ?? null,
+        read_at: null,
+        created_at: nowIso,
+        message_type: "image_request",
+        attachments: uploaded as unknown as MessageRow["attachments"],
+        image_mode: mode,
+        image_request_status: mode === "preview_once" ? "pending" : "accepted",
+        expires_at: null,
+      } as MessageRow;
+      setMessages((prev) => (prev.some((x) => x.id === messageId) ? prev : [...prev, optimistic]));
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
       setPickerOpen(false);
