@@ -35,7 +35,7 @@ function formatHeader(iso: string) {
   return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} • ${time}`;
 }
 
-export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose }: Props) {
+export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose, badge }: Props) {
   const startIdx = Math.max(0, items.findIndex((i) => i.key === startKey));
   const [idx, setIdx] = useState(startIdx);
   const [zoom, setZoom] = useState(1);
