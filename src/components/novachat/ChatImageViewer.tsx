@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Download, Loader2, AlertTriangle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Loader2, AlertTriangle, Eye } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ type Props = {
   /** Returns signed URLs for every attachment in this message. Cached by caller. */
   resolveUrls: (msgId: string) => Promise<string[]>;
   onClose: () => void;
+  /** Optional badge shown on the image stage (e.g. "Preview Once · Temporary Access"). */
+  badge?: string | null;
 };
 
 function formatHeader(iso: string) {
@@ -33,7 +35,7 @@ function formatHeader(iso: string) {
   return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} • ${time}`;
 }
 
-export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose }: Props) {
+export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose, badge }: Props) {
   const startIdx = Math.max(0, items.findIndex((i) => i.key === startKey));
   const [idx, setIdx] = useState(startIdx);
   const [zoom, setZoom] = useState(1);
@@ -232,6 +234,12 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
           <X className="size-5" />
         </button>
       </div>
+
+      {badge && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary/90 text-primary-foreground text-xs font-medium flex items-center gap-1.5 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          <Eye className="size-3.5" /> {badge}
+        </div>
+      )}
 
       {/* Image stage */}
       <div

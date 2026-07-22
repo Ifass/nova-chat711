@@ -29,6 +29,7 @@ export function ImageMessage({
 
   const attachments: Att[] = Array.isArray(msg.attachments) ? msg.attachments : [];
   const status: string = msg.image_request_status ?? "pending";
+  const mode: "normal" | "preview_once" = msg.image_mode === "preview_once" ? "preview_once" : "normal";
   const totalSize = attachments.reduce((a, b) => a + (b.size ?? 0), 0);
 
   const displayName = mine ? me.display_name : peer.display_name;
@@ -63,16 +64,17 @@ export function ImageMessage({
     finally { setLoading(false); }
   };
 
-  // ---------- RECEIVER: pending request card ----------
-  if (!mine && status === "pending") {
+  // ---------- RECEIVER: pending Preview Once request card ----------
+  if (!mine && status === "pending" && mode === "preview_once") {
     return (
       <Bubble mine={mine}>
         <div className="p-3 min-w-[260px]">
           <div className="flex items-center gap-2 mb-2">
             <Avatar className="size-8"><AvatarImage src={avatarUrl ?? undefined} /><AvatarFallback>{initials(displayName)}</AvatarFallback></Avatar>
             <div className="text-sm">
-              <span className="font-semibold">{displayName}</span> wants to send you{" "}
-              <span className="font-semibold">{attachments.length}</span> image{attachments.length === 1 ? "" : "s"}
+              <span className="font-semibold">{displayName}</span> sent a{" "}
+              <span className="font-semibold inline-flex items-center gap-1"><Eye className="size-3" />Preview Once</span>{" "}
+              image request ({attachments.length})
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1 mb-2">
@@ -85,11 +87,11 @@ export function ImageMessage({
           {msg.caption && <div className="text-sm mb-2 italic text-muted-foreground">"{msg.caption}"</div>}
           <div className="text-xs text-muted-foreground mb-3">Total: {formatBytes(totalSize)}</div>
           <div className="flex gap-2 flex-wrap">
-            <Button size="sm" onClick={doAccept} disabled={loading}>
-              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Accept
-            </Button>
             <Button size="sm" variant="secondary" onClick={doPreview} disabled={loading}>
               <Eye className="size-3.5" /> Preview once
+            </Button>
+            <Button size="sm" onClick={doAccept} disabled={loading}>
+              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Accept permanently
             </Button>
             <Button size="sm" variant="ghost" onClick={doDecline} disabled={loading}>
               <X className="size-3.5" /> Decline
@@ -102,12 +104,12 @@ export function ImageMessage({
   }
 
   if (status === "declined") {
-    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Image request declined"} time={msg.created_at} /></Bubble>;
+    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Request declined"} time={msg.created_at} /></Bubble>;
   }
   if (status === "expired") {
     return <Bubble mine={mine}><Info icon={<Clock className="size-4" />} text="Image request expired" time={msg.created_at} /></Bubble>;
   }
-  if (!mine && status === "previewed") {
+  if (!mine && status === "previewed" && mode === "preview_once") {
     return <Bubble mine={mine}><Info icon={<Eye className="size-4" />} text="Preview expired. Ask sender to resend." time={msg.created_at} /></Bubble>;
   }
 
@@ -121,12 +123,15 @@ export function ImageMessage({
           onOpenAt={(i) => onOpen(msg.id, i)}
         />
         {msg.caption && <div className="px-2 py-1 text-sm">{msg.caption}</div>}
-        <div className="flex items-center justify-between px-2 pb-1 text-[10px] text-muted-foreground">
-          <span>
-            {mine && status === "pending" && "Waiting for acceptance…"}
-            {mine && status === "accepted" && "✓ Accepted"}
-            {mine && status === "previewed" && "👁 Recipient previewed your image"}
-            {!mine && status === "accepted" && "Accepted"}
+        <div className="flex items-center justify-between px-2 pb-1 text-[10px] text-muted-foreground gap-2">
+          <span className="flex items-center gap-1">
+            {mode === "preview_once" && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium"><Eye className="size-2.5" />Preview Once</span>}
+            {mine && mode === "preview_once" && status === "pending" && "Waiting…"}
+            {mine && mode === "preview_once" && status === "accepted" && "✓ Accepted permanently"}
+            {mine && mode === "preview_once" && status === "previewed" && "👁 Previewed once"}
+            {mine && mode === "normal" && "Sent"}
+            {!mine && status === "accepted" && mode === "normal" && ""}
+            {!mine && status === "accepted" && mode === "preview_once" && "Saved permanently"}
           </span>
           <span>{formatTime(msg.created_at)}</span>
         </div>

@@ -220,6 +220,7 @@ export type Database = {
           declined_at: string | null
           expires_at: string | null
           id: string
+          image_mode: string
           image_request_status: string | null
           message_type: string
           previewed_at: string | null
@@ -237,6 +238,7 @@ export type Database = {
           declined_at?: string | null
           expires_at?: string | null
           id?: string
+          image_mode?: string
           image_request_status?: string | null
           message_type?: string
           previewed_at?: string | null
@@ -254,6 +256,7 @@ export type Database = {
           declined_at?: string | null
           expires_at?: string | null
           id?: string
+          image_mode?: string
           image_request_status?: string | null
           message_type?: string
           previewed_at?: string | null
