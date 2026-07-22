@@ -20,6 +20,8 @@ type Props = {
   /** Returns signed URLs for every attachment in this message. Cached by caller. */
   resolveUrls: (msgId: string) => Promise<string[]>;
   onClose: () => void;
+  /** Optional badge shown on the image stage (e.g. "Preview Once · Temporary Access"). */
+  badge?: string | null;
 };
 
 function formatHeader(iso: string) {
