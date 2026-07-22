@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://uhzzshvdtfvfsuihaomb.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "nova-chat-mcp",
+      "version": "0.1.0",
+      "title": "Nova Chat"
+    },
+    "tools": [
+      {
+        "name": "get_my_profile",
+        "title": "Get my Nova Chat profile",
+        "description": "Return the signed-in Nova Chat user's profile (username, display name, friend code, bio, avatar).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_friends",
+        "title": "List Nova Chat friends",
+        "description": "List the signed-in user's Nova Chat friends and pending friend requests.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "accepted",
+                "pending",
+                "all"
+              ],
+              "description": "Filter by friendship status. Defaults to 'accepted'."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_recent_messages",
+        "title": "List recent Nova Chat messages",
+        "description": "List recent Nova Chat direct messages for the signed-in user, optionally filtered to messages with a specific peer (by user id, username, or friend code).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "peer": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional peer identifier: user id (uuid), username, or friend code (e.g. ABC-1234)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max messages to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "send_message",
+        "title": "Send a Nova Chat message",
+        "description": "Send a direct message from the signed-in user to a friend, identified by user id, username, or friend code.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "to": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Recipient: user id (uuid), username, or friend code (e.g. ABC-1234)."
+            },
+            "content": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "Message text."
+            }
+          },
+          "required": [
+            "to",
+            "content"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_calls",
+        "title": "List Nova Chat call history",
+        "description": "List recent Nova Chat voice calls for the signed-in user (caller, callee, status, duration, timestamps).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max calls to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

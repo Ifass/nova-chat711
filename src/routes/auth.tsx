@@ -12,6 +12,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in to NovaChat" },
@@ -29,6 +32,11 @@ type Mode = "signin" | "signup" | "forgot";
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+  const goNext = () => {
+    if (next) window.location.href = next;
+    else navigate({ to: "/" });
+  };
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,9 +50,10 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/" });
+      if (data.session) goNext();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resendConfirmation = async (target: string) => {
     setSubmitting(true);
@@ -72,10 +81,13 @@ function AuthPage() {
         if (cleanUsername.length < 3) { toast.error("Username must be 3+ chars (letters, numbers, _)"); return; }
         if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
         if (password !== confirm) { toast.error("Passwords don't match"); return; }
+        const emailRedirect = next
+          ? `${window.location.origin}/auth?next=${encodeURIComponent(next)}`
+          : window.location.origin;
         const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: emailRedirect,
             data: { username: cleanUsername, display_name: displayName.trim() || cleanUsername },
           },
         });
@@ -85,11 +97,11 @@ function AuthPage() {
           if (signInError) throw signInError;
         }
         toast.success("Welcome to NovaChat!");
-        navigate({ to: "/" });
+        goNext();
       } else if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/" });
+        goNext();
       } else {
         // forgot
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -109,10 +121,13 @@ function AuthPage() {
   const onGoogle = async () => {
     setSubmitting(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      const redirectUri = next
+        ? `${window.location.origin}/auth?next=${encodeURIComponent(next)}`
+        : window.location.origin;
+      const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: redirectUri });
       if (result.error) { toast.error(result.error.message || "Google sign-in failed"); return; }
       if (result.redirected) return;
-      navigate({ to: "/" });
+      goNext();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
