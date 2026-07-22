@@ -7,54 +7,91 @@ export const MAX_EDGE = 2048;
 
 export type PreparedImage = {
   id: string;
+  name: string;
+  status: "loading" | "ready" | "error";
+  error?: string;
+  /** Final file to upload (compressed once ready, otherwise the original). */
   file: File;
+  originalFile: File;
+  /** Instant object URL — available as soon as the file is picked. */
   previewUrl: string;
   width: number;
   height: number;
   size: number;
   mime: string;
+  /** True while background compression is running. */
+  compressing: boolean;
 };
 
-async function readDimensions(file: File | Blob): Promise<{ width: number; height: number }> {
-  const url = URL.createObjectURL(file);
+function readDimensions(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve({ width: el.naturalWidth, height: el.naturalHeight });
+    el.onerror = () => reject(new Error("Invalid image"));
+    el.src = url;
+  });
+}
+
+/** Instant, synchronous-ish placeholder. Never blocks — no decoding, no compression. */
+export function makePlaceholder(file: File): PreparedImage {
+  const previewUrl = URL.createObjectURL(file);
+  return {
+    id: crypto.randomUUID(),
+    name: file.name,
+    status: "loading",
+    file,
+    originalFile: file,
+    previewUrl,
+    width: 0,
+    height: 0,
+    size: file.size,
+    mime: file.type,
+    compressing: false,
+  };
+}
+
+export function validateFile(file: File): string | null {
+  if (!ACCEPTED_TYPES.includes(file.type)) return `Unsupported type: ${file.type || "unknown"}`;
+  if (file.size > MAX_SIZE) return `${file.name} exceeds 20MB`;
+  return null;
+}
+
+/** Decode dimensions off the main render path. Fast (<50ms typical). */
+export async function decodePreview(item: PreparedImage): Promise<Partial<PreparedImage>> {
   try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("Invalid image"));
-      el.src = url;
-    });
-    return { width: img.naturalWidth, height: img.naturalHeight };
-  } finally {
-    URL.revokeObjectURL(url);
+    const dims = await readDimensions(item.previewUrl);
+    return { width: dims.width, height: dims.height, status: "ready" };
+  } catch (e) {
+    return { status: "error", error: e instanceof Error ? e.message : "Decode failed" };
   }
 }
 
-export async function prepareImage(file: File): Promise<PreparedImage> {
-  if (!ACCEPTED_TYPES.includes(file.type)) throw new Error(`Unsupported type: ${file.type}`);
-  if (file.size > MAX_SIZE) throw new Error(`${file.name} exceeds 20MB`);
+/** Heavy work — runs in a Web Worker via browser-image-compression. */
+export async function compressInBackground(item: PreparedImage): Promise<Partial<PreparedImage>> {
   // Don't recompress GIFs (would lose animation)
-  const shouldCompress = file.type !== "image/gif";
-  const compressed: File | Blob = shouldCompress
-    ? await imageCompression(file, {
-        maxWidthOrHeight: MAX_EDGE,
-        maxSizeMB: 3,
-        useWebWorker: true,
-        initialQuality: 0.85,
-        fileType: file.type === "image/png" ? "image/png" : "image/jpeg",
-      })
-    : file;
-  const dims = await readDimensions(compressed);
-  const outFile = compressed instanceof File ? compressed : new File([compressed], file.name, { type: compressed.type });
-  return {
-    id: crypto.randomUUID(),
-    file: outFile,
-    previewUrl: URL.createObjectURL(outFile),
-    width: dims.width,
-    height: dims.height,
-    size: outFile.size,
-    mime: outFile.type,
-  };
+  if (item.mime === "image/gif") return { compressing: false };
+  try {
+    const compressed: File = await imageCompression(item.originalFile, {
+      maxWidthOrHeight: MAX_EDGE,
+      maxSizeMB: 3,
+      useWebWorker: true,
+      initialQuality: 0.85,
+      fileType: item.mime === "image/png" ? "image/png" : "image/jpeg",
+    });
+    const outFile: File = compressed;
+    const newUrl = URL.createObjectURL(outFile);
+    URL.revokeObjectURL(item.previewUrl);
+    return {
+      file: outFile,
+      previewUrl: newUrl,
+      size: outFile.size,
+      mime: outFile.type,
+      compressing: false,
+    };
+  } catch {
+    // Fall back to original file — still uploadable.
+    return { compressing: false };
+  }
 }
 
 export function extForMime(mime: string) {

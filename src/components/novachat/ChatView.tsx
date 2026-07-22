@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { prepareImage, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
+import { makePlaceholder, decodePreview, compressInBackground, validateFile, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
 import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
 import { ImageMessage } from "@/components/novachat/ImageMessage";
 
@@ -178,39 +178,70 @@ export function ChatView({
     if (error) { toast.error(error.message); setInput(content); }
   };
 
-  const addFiles = async (files: FileList | File[]) => {
+  // Track per-image background processing so Send can await pending compression.
+  const processingRef = useRef<Map<string, Promise<void>>>(new Map());
+
+  const processItem = (item: PreparedImage) => {
+    const p = (async () => {
+      // Kick off decode + compression in parallel; both mutate state independently.
+      const decode = decodePreview(item).then((patch) => {
+        setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, ...patch } : x)));
+      });
+      // Mark compressing immediately so the modal can show "Compressing…"
+      setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, compressing: true } : x)));
+      const compress = compressInBackground(item).then((patch) => {
+        setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, ...patch } : x)));
+      });
+      await Promise.all([decode, compress]);
+    })();
+    processingRef.current.set(item.id, p);
+    p.finally(() => processingRef.current.delete(item.id));
+  };
+
+  const addFiles = (files: FileList | File[]) => {
     const arr = Array.from(files);
-    if (pending.length + arr.length > MAX_COUNT) {
-      toast.error(`Max ${MAX_COUNT} images per message`);
-      return;
-    }
-    const prepared: PreparedImage[] = [];
+    // Instant modal — no awaits before this point.
+    const room = MAX_COUNT - pending.length;
+    if (room <= 0) { toast.error(`Max ${MAX_COUNT} images per message`); return; }
+    const accepted: File[] = [];
     for (const f of arr) {
-      try { prepared.push(await prepareImage(f)); }
-      catch (e) { toast.error(e instanceof Error ? e.message : `Skipped ${f.name}`); }
+      if (accepted.length >= room) { toast.error(`Only added the first ${room} image${room === 1 ? "" : "s"}`); break; }
+      const err = validateFile(f);
+      if (err) { toast.error(err); continue; }
+      accepted.push(f);
     }
-    if (prepared.length) {
-      setPending((p) => [...p, ...prepared]);
-      setPickerOpen(true);
-    }
+    if (accepted.length === 0) return;
+    const placeholders = accepted.map(makePlaceholder);
+    setPending((p) => [...p, ...placeholders]);
+    setPickerOpen(true);
+    // Fire-and-forget background processing (parallel per image).
+    for (const item of placeholders) processItem(item);
   };
 
   const sendImages = async (caption: string) => {
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
+    // Wait for any in-flight decode/compression so we upload the optimized files.
+    await Promise.all(Array.from(processingRef.current.values()));
+    const items = pending.filter((p) => p.status !== "error");
+    if (items.length === 0) {
+      setUploading(false);
+      toast.error("No valid images to send");
+      return;
+    }
     const messageId = crypto.randomUUID();
     const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
-      for (let i = 0; i < pending.length; i++) {
-        const im = pending[i];
+      for (let i = 0; i < items.length; i++) {
+        const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
-        uploaded.push({ path, size: im.size, width: im.width, height: im.height, mime: im.mime });
-        setUploadPct(Math.round(((i + 1) / pending.length) * 100));
+        uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
+        setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined } });
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
@@ -218,7 +249,6 @@ export function ChatView({
       setPickerOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
-      // best-effort cleanup
       if (uploaded.length) {
         await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
       }
@@ -254,6 +284,46 @@ export function ChatView({
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending.length]);
+
+  // Full-window drag & drop for image files.
+  const [dragActive, setDragActive] = useState(false);
+  useEffect(() => {
+    let counter = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      counter++;
+      setDragActive(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      counter = Math.max(0, counter - 1);
+      if (counter === 0) setDragActive(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      counter = 0;
+      setDragActive(false);
+      const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
+      if (files.length) addFiles(files);
+    };
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending.length]);
 
@@ -548,6 +618,16 @@ export function ChatView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {dragActive && (
+        <div className="fixed inset-0 z-[60] pointer-events-none backdrop-blur-sm bg-background/60 flex items-center justify-center">
+          <div className="m-6 p-10 rounded-3xl border-2 border-dashed border-primary bg-card/90 shadow-2xl text-center">
+            <div className="text-5xl mb-3">📷</div>
+            <div className="text-lg font-semibold">Drop images to send</div>
+            <div className="text-sm text-muted-foreground mt-1">Up to {MAX_COUNT} images · 20MB each</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

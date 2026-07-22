@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, ChevronLeft, ChevronRight, Send, Loader2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon } from "lucide-react";
 import { formatBytes, type PreparedImage } from "@/lib/image-utils";
 
 export function ImagePreviewModal({
@@ -33,16 +33,37 @@ export function ImagePreviewModal({
 
   const total = images.reduce((a, b) => a + b.size, 0);
   const current = images[idx];
+  const anyLoading = images.some((i) => i.status === "loading");
+  const anyCompressing = images.some((i) => i.compressing);
+  const readyCount = images.filter((i) => i.status === "ready").length;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !sending) onClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Send {images.length} image{images.length === 1 ? "" : "s"} · {formatBytes(total)}</DialogTitle>
+          <DialogTitle>
+            Send {images.length} image{images.length === 1 ? "" : "s"}
+            {total > 0 && ` · ${formatBytes(total)}`}
+          </DialogTitle>
         </DialogHeader>
         {current && (
           <div className="relative rounded-lg overflow-hidden bg-black/90 aspect-video flex items-center justify-center">
-            <img src={current.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+            {current.status === "loading" ? (
+              <div className="flex flex-col items-center gap-3 text-white/80">
+                <div className="relative">
+                  <ImageIcon className="size-12 opacity-60" />
+                  <span className="absolute inset-0 shimmer-mask rounded-md" />
+                </div>
+                <Loader2 className="size-5 animate-spin" />
+                <div className="text-xs">Preparing image…</div>
+              </div>
+            ) : current.status === "error" ? (
+              <div className="text-white/80 text-sm px-6 text-center">
+                Couldn't load this image{current.error ? `: ${current.error}` : ""}.
+              </div>
+            ) : (
+              <img src={current.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+            )}
             {images.length > 1 && (
               <>
                 <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}
@@ -64,6 +85,11 @@ export function ImagePreviewModal({
                 <X className="size-4" />
               </button>
             )}
+            {current.compressing && current.status !== "loading" && (
+              <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/60 text-white text-[11px] flex items-center gap-1">
+                <Loader2 className="size-3 animate-spin" /> Compressing…
+              </div>
+            )}
           </div>
         )}
         {images.length > 1 && (
@@ -71,7 +97,20 @@ export function ImagePreviewModal({
             {images.map((im, i) => (
               <button key={im.id} onClick={() => setIdx(i)}
                 className={`relative shrink-0 size-14 rounded-md overflow-hidden border-2 ${i === idx ? "border-primary" : "border-transparent"}`}>
-                <img src={im.previewUrl} alt="" className="size-full object-cover" />
+                {im.status === "loading" ? (
+                  <div className="size-full bg-muted animate-pulse grid place-items-center">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : im.status === "error" ? (
+                  <div className="size-full bg-destructive/20 grid place-items-center text-destructive text-xs">!</div>
+                ) : (
+                  <img src={im.previewUrl} alt="" className="size-full object-cover" />
+                )}
+                {im.compressing && im.status === "ready" && (
+                  <div className="absolute inset-0 bg-black/30 grid place-items-center">
+                    <Loader2 className="size-3 animate-spin text-white" />
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -85,11 +124,17 @@ export function ImagePreviewModal({
         />
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">
-            Sent as an <span className="font-medium">image request</span> — {sending ? `uploading… ${progress}%` : "recipient will accept, preview, or decline."}
+            {sending
+              ? `Uploading… ${progress}%`
+              : anyLoading
+                ? `Preparing ${readyCount}/${images.length}…`
+                : anyCompressing
+                  ? "Compressing in background — you can still send."
+                  : "Sent as an image request — recipient will accept, preview, or decline."}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={sending}>Cancel</Button>
-            <Button onClick={() => onSend(caption)} disabled={sending || images.length === 0}>
+            <Button onClick={() => onSend(caption)} disabled={sending || images.length === 0 || anyLoading}>
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {sending ? `${progress}%` : "Send"}
             </Button>
