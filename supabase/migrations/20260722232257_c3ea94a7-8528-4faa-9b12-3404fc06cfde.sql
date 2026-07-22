@@ -1,0 +1,1 @@
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_mode text NOT NULL DEFAULT 'normal' CHECK (image_mode IN ('normal', 'preview_once'));
