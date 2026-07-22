@@ -287,6 +287,46 @@ export function ChatView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending.length]);
 
+  // Full-window drag & drop for image files.
+  const [dragActive, setDragActive] = useState(false);
+  useEffect(() => {
+    let counter = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      counter++;
+      setDragActive(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      counter = Math.max(0, counter - 1);
+      if (counter === 0) setDragActive(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      counter = 0;
+      setDragActive(false);
+      const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith("image/"));
+      if (files.length) addFiles(files);
+    };
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending.length]);
+
   const toggleReaction = async (messageId: string, emoji: string) => {
     const existing = reactions.find((r) => r.message_id === messageId && r.user_id === me.id && r.emoji === emoji);
     if (existing) {
