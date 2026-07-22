@@ -123,12 +123,15 @@ export function ImageMessage({
           onOpenAt={(i) => onOpen(msg.id, i)}
         />
         {msg.caption && <div className="px-2 py-1 text-sm">{msg.caption}</div>}
-        <div className="flex items-center justify-between px-2 pb-1 text-[10px] text-muted-foreground">
-          <span>
-            {mine && status === "pending" && "Waiting for acceptance…"}
-            {mine && status === "accepted" && "✓ Accepted"}
-            {mine && status === "previewed" && "👁 Recipient previewed your image"}
-            {!mine && status === "accepted" && "Accepted"}
+        <div className="flex items-center justify-between px-2 pb-1 text-[10px] text-muted-foreground gap-2">
+          <span className="flex items-center gap-1">
+            {mode === "preview_once" && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium"><Eye className="size-2.5" />Preview Once</span>}
+            {mine && mode === "preview_once" && status === "pending" && "Waiting…"}
+            {mine && mode === "preview_once" && status === "accepted" && "✓ Accepted permanently"}
+            {mine && mode === "preview_once" && status === "previewed" && "👁 Previewed once"}
+            {mine && mode === "normal" && "Sent"}
+            {!mine && status === "accepted" && mode === "normal" && ""}
+            {!mine && status === "accepted" && mode === "preview_once" && "Saved permanently"}
           </span>
           <span>{formatTime(msg.created_at)}</span>
         </div>
