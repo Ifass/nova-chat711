@@ -17,7 +17,7 @@ async function signPaths(paths: string[]) {
     .from("chat-images")
     .createSignedUrls(paths, SIGN_TTL);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((d) => d.signedUrl);
+  return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
 }
 
 /** Sender creates an image_request message. Files must already be uploaded under `${userId}/${messageId}/...`. */

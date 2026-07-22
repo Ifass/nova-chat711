@@ -35,7 +35,7 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   if (file.size > MAX_SIZE) throw new Error(`${file.name} exceeds 20MB`);
   // Don't recompress GIFs (would lose animation)
   const shouldCompress = file.type !== "image/gif";
-  const out = shouldCompress
+  const compressed: File | Blob = shouldCompress
     ? await imageCompression(file, {
         maxWidthOrHeight: MAX_EDGE,
         maxSizeMB: 3,
@@ -44,8 +44,8 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
         fileType: file.type === "image/png" ? "image/png" : "image/jpeg",
       })
     : file;
-  const dims = await readDimensions(out);
-  const outFile = out instanceof File ? out : new File([out], file.name, { type: out.type });
+  const dims = await readDimensions(compressed);
+  const outFile = compressed instanceof File ? compressed : new File([compressed], file.name, { type: compressed.type });
   return {
     id: crypto.randomUUID(),
     file: outFile,
