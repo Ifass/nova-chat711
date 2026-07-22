@@ -695,6 +695,8 @@ export function ChatView({
             <div className="text-sm text-muted-foreground mt-1">Up to {MAX_COUNT} images · 20MB each</div>
           </div>
         </div>
+      )}
+
 
       {openKey && galleryItems.length > 0 && (
         <ChatImageViewer
