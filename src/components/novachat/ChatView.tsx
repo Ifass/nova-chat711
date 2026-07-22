@@ -473,8 +473,22 @@ export function ChatView({
         </div>
       </div>
 
-      <form onSubmit={send} className="p-3 border-t border-border bg-card">
+      <form
+        onSubmit={send}
+        className="p-3 border-t border-border bg-card"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
+        onDrop={(e) => {
+          if (e.dataTransfer.files?.length) { e.preventDefault(); addFiles(e.dataTransfer.files); }
+        }}
+      >
         <div className="max-w-3xl mx-auto flex gap-2 items-center">
+          <input
+            ref={fileInputRef} type="file" accept={ACCEPTED_TYPES.join(",")} multiple className="hidden"
+            onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }}
+          />
+          <Button type="button" variant="ghost" size="icon" aria-label="Attach images" onClick={() => fileInputRef.current?.click()}>
+            <ImagePlus className="size-5" />
+          </Button>
           <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
             <PopoverTrigger asChild>
               <Button type="button" variant="ghost" size="icon" aria-label="Emoji picker"><Smile className="size-5" /></Button>
@@ -502,6 +516,20 @@ export function ChatView({
           </Button>
         </div>
       </form>
+
+      <ImagePreviewModal
+        open={pickerOpen}
+        images={pending}
+        onClose={() => {
+          pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+          setPending([]);
+          setPickerOpen(false);
+        }}
+        onRemove={removePending}
+        onSend={sendImages}
+        sending={uploading}
+        progress={uploadPct}
+      />
 
       <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
         <AlertDialogContent>
