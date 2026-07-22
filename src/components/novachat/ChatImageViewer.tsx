@@ -407,7 +407,7 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
                       transform: isCur
                         ? `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`
                         : `translate3d(${innerTx}px, 0, 0)`,
-                      transition: isCur && !dragging && !mouseDownPan.current
+                      transition: isCur && !dragging && !panning
                         ? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)"
                         : "none",
                       opacity,
