@@ -722,6 +722,7 @@ export function ChatView({
           senders={senders}
           resolveUrls={resolveUrls}
           onClose={closeGallery}
+          badge={openMsg?.image_mode === "preview_once" ? "Preview Once · Temporary Access" : null}
         />
       )}
     </div>
