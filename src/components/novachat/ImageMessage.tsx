@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageIcon, Eye, Check, X, Loader2, Clock, Ban } from "lucide-react";
+import { ImageIcon, Eye, Loader2, Clock, Ban, EyeOff, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { respondImageRequest } from "@/lib/image.functions";
-import { formatBytes, type PreparedImage } from "@/lib/image-utils";
+import { type PreparedImage } from "@/lib/image-utils";
 import { formatTime, initials, type MessageRow, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +17,8 @@ export function ImageMessage({
   msg, me, peer, mine, thumbUrls, onOpen, onPreviewUrls,
 }: {
   msg: ImgMsg; me: ProfileLite; peer: ProfileLite; mine: boolean;
-  /** Optional thumbnail URLs (already-resolved signed URLs) keyed by attachment index. */
   thumbUrls?: string[];
-  /** Open the shared chat gallery viewer at this message + attachment index. */
   onOpen: (msgId: string, attIndex: number) => void;
-  /** Called after a successful preview-once so the parent can cache URLs before opening. */
   onPreviewUrls: (msgId: string, urls: string[]) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -30,20 +27,11 @@ export function ImageMessage({
   const attachments: Att[] = Array.isArray(msg.attachments) ? msg.attachments : [];
   const status: string = msg.image_request_status ?? "pending";
   const mode: "normal" | "preview_once" = msg.image_mode === "preview_once" ? "preview_once" : "normal";
-  const totalSize = attachments.reduce((a, b) => a + (b.size ?? 0), 0);
 
   const displayName = mine ? me.display_name : peer.display_name;
   const avatarUrl = mine ? me.avatar_url : peer.avatar_url;
 
-  const doAccept = async () => {
-    setLoading(true);
-    try {
-      await respond({ data: { messageId: msg.id, action: "accept" } });
-      toast.success("Images accepted");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
-  const doPreview = async () => {
+  const doView = async () => {
     setLoading(true);
     try {
       const r = await respond({ data: { messageId: msg.id, action: "preview" } });
@@ -57,45 +45,63 @@ export function ImageMessage({
       toast.error(e instanceof Error ? e.message : "This image is no longer available.");
     } finally { setLoading(false); }
   };
-  const doDecline = async () => {
-    setLoading(true);
-    try { await respond({ data: { messageId: msg.id, action: "decline" } }); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
 
-  // ---------- RECEIVER: pending Preview Once request card ----------
+  // ---------- RECEIVER: pending Preview Once — single "View Image" card ----------
   if (!mine && status === "pending" && mode === "preview_once") {
     return (
       <Bubble mine={mine}>
-        <div className="p-3 min-w-[260px]">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="p-4 min-w-[260px] max-w-[320px]">
+          <div className="flex items-center gap-2 mb-3">
             <Avatar className="size-8"><AvatarImage src={avatarUrl ?? undefined} /><AvatarFallback>{initials(displayName)}</AvatarFallback></Avatar>
-            <div className="text-sm">
-              <span className="font-semibold">{displayName}</span> sent a{" "}
-              <span className="font-semibold inline-flex items-center gap-1"><Eye className="size-3" />Preview Once</span>{" "}
-              image request ({attachments.length})
+            <div className="text-sm min-w-0">
+              <div className="font-semibold truncate">{displayName}</div>
+              <div className="text-xs text-muted-foreground">sent a Preview Once</div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-1 mb-2">
-            {attachments.slice(0, 6).map((_, i) => (
-              <div key={i} className="aspect-square rounded-md bg-muted flex items-center justify-center">
-                <ImageIcon className="size-6 text-muted-foreground/60" />
-              </div>
-            ))}
+          <div className="flex items-center gap-3 mb-3 p-3 rounded-xl bg-primary/10 border border-primary/20">
+            <Eye className="size-6 text-primary shrink-0" />
+            <div className="text-sm">
+              <div className="font-semibold">Preview Once Image{attachments.length > 1 ? `s (${attachments.length})` : ""}</div>
+              <div className="text-xs text-muted-foreground">This image can only be viewed once.</div>
+            </div>
           </div>
-          {msg.caption && <div className="text-sm mb-2 italic text-muted-foreground">"{msg.caption}"</div>}
-          <div className="text-xs text-muted-foreground mb-3">Total: {formatBytes(totalSize)}</div>
-          <div className="flex gap-2 flex-wrap">
-            <Button size="sm" variant="secondary" onClick={doPreview} disabled={loading}>
-              <Eye className="size-3.5" /> Preview once
-            </Button>
-            <Button size="sm" onClick={doAccept} disabled={loading}>
-              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Accept permanently
-            </Button>
-            <Button size="sm" variant="ghost" onClick={doDecline} disabled={loading}>
-              <X className="size-3.5" /> Decline
-            </Button>
+          <Button size="sm" className="w-full" onClick={doView} disabled={loading}>
+            {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Eye className="size-3.5" />}
+            View Image
+          </Button>
+          <div className="text-[10px] text-muted-foreground text-right mt-2">{formatTime(msg.created_at)}</div>
+        </div>
+      </Bubble>
+    );
+  }
+
+  // ---------- Terminal states ----------
+  if (status === "declined") {
+    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Request declined"} time={msg.created_at} /></Bubble>;
+  }
+  if (status === "expired") {
+    return <Bubble mine={mine}><Info icon={<Clock className="size-4" />} text="Image request expired" time={msg.created_at} /></Bubble>;
+  }
+  // Preview Once has been viewed — permanent placeholder for BOTH sides.
+  if (status === "previewed" && mode === "preview_once") {
+    return (
+      <Bubble mine={mine}>
+        <div className="p-3 min-w-[240px] max-w-[300px]">
+          <div className="flex items-start gap-3">
+            <div className="size-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <EyeOff className="size-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                <Eye className="size-3.5" /> Preview Once Image
+              </div>
+              <div className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                <Check className="size-3" /> Viewed
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                This image is no longer available.
+              </div>
+            </div>
           </div>
           <div className="text-[10px] text-muted-foreground text-right mt-2">{formatTime(msg.created_at)}</div>
         </div>
@@ -103,17 +109,7 @@ export function ImageMessage({
     );
   }
 
-  if (status === "declined") {
-    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Request declined"} time={msg.created_at} /></Bubble>;
-  }
-  if (status === "expired") {
-    return <Bubble mine={mine}><Info icon={<Clock className="size-4" />} text="Image request expired" time={msg.created_at} /></Bubble>;
-  }
-  if (!mine && status === "previewed" && mode === "preview_once") {
-    return <Bubble mine={mine}><Info icon={<Eye className="size-4" />} text="Preview expired. Ask sender to resend." time={msg.created_at} /></Bubble>;
-  }
-
-  // ---------- Sender view (any status) OR receiver accepted: show grid ----------
+  // ---------- Sender/receiver view for normal images (or accepted legacy) ----------
   return (
     <Bubble mine={mine}>
       <div className="p-1.5 max-w-[320px]">
@@ -125,13 +121,13 @@ export function ImageMessage({
         {msg.caption && <div className="px-2 py-1 text-sm">{msg.caption}</div>}
         <div className="flex items-center justify-between px-2 pb-1 text-[10px] text-muted-foreground gap-2">
           <span className="flex items-center gap-1">
-            {mode === "preview_once" && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium"><Eye className="size-2.5" />Preview Once</span>}
-            {mine && mode === "preview_once" && status === "pending" && "Waiting…"}
-            {mine && mode === "preview_once" && status === "accepted" && "✓ Accepted permanently"}
-            {mine && mode === "preview_once" && status === "previewed" && "👁 Previewed once"}
+            {mode === "preview_once" && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                <Eye className="size-2.5" />Preview Once
+              </span>
+            )}
+            {mine && mode === "preview_once" && status === "pending" && "Sent · Delivered"}
             {mine && mode === "normal" && "Sent"}
-            {!mine && status === "accepted" && mode === "normal" && ""}
-            {!mine && status === "accepted" && mode === "preview_once" && "Saved permanently"}
           </span>
           <span>{formatTime(msg.created_at)}</span>
         </div>
@@ -205,7 +201,6 @@ function ImageGrid({ attachments, urls, onOpenAt }: {
   );
 }
 
-// Types helper for callers building attachments from PreparedImages
 export function attachmentsFromPrepared(items: PreparedImage[], paths: string[]): Att[] {
   return items.map((im, i) => ({
     path: paths[i], size: im.size, width: im.width, height: im.height, mime: im.mime,
