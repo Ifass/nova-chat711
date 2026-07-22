@@ -364,6 +364,55 @@ export function ChatView({
     map.set(r.emoji, { count: cur.count + 1, mine: cur.mine || r.user_id === me.id });
   }
 
+  // ---------- Chat image gallery ----------
+  const galleryItems: GalleryItem[] = [];
+  for (const m of messages) {
+    if (m.message_type !== "image_request") continue;
+    const mineMsg = m.sender_id === me.id;
+    const status = m.image_request_status ?? "pending";
+    const canShow = mineMsg || status === "accepted" || !!previewCache[m.id];
+    if (!canShow) continue;
+    const atts = Array.isArray(m.attachments) ? m.attachments : [];
+    atts.forEach((_, i) => {
+      galleryItems.push({
+        key: `${m.id}:${i}`,
+        msgId: m.id,
+        attIndex: i,
+        senderId: m.sender_id,
+        createdAt: m.created_at,
+      });
+    });
+  }
+
+  const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
+
+  const resolveUrls = async (msgId: string): Promise<string[]> => {
+    const cached = previewCache[msgId];
+    if (cached) return cached;
+    let p = urlPromises.current.get(msgId);
+    if (!p) {
+      p = getImageUrlsFn({ data: { messageId: msgId } })
+        .then((r) => r.urls)
+        .catch((e) => { urlPromises.current.delete(msgId); throw e; });
+      urlPromises.current.set(msgId, p);
+    }
+    const urls = await p;
+    setThumbCache((c) => (c[msgId] ? c : { ...c, [msgId]: urls }));
+    return urls;
+  };
+
+  const openGallery = (msgId: string, attIndex: number) => setOpenKey(`${msgId}:${attIndex}`);
+  const closeGallery = () => {
+    setOpenKey(null);
+    // Preview-once URLs stop being usable once the viewer closes.
+    if (Object.keys(previewCache).length) setPreviewCache({});
+  };
+  const registerPreviewUrls = (msgId: string, urls: string[]) => {
+    setPreviewCache((c) => ({ ...c, [msgId]: urls }));
+  };
+
+
+
   return (
     <div className="flex flex-col h-full">
       <header className="h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-border bg-card">
