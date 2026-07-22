@@ -178,21 +178,44 @@ export function ChatView({
     if (error) { toast.error(error.message); setInput(content); }
   };
 
-  const addFiles = async (files: FileList | File[]) => {
+  // Track per-image background processing so Send can await pending compression.
+  const processingRef = useRef<Map<string, Promise<void>>>(new Map());
+
+  const processItem = (item: PreparedImage) => {
+    const p = (async () => {
+      // Kick off decode + compression in parallel; both mutate state independently.
+      const decode = decodePreview(item).then((patch) => {
+        setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, ...patch } : x)));
+      });
+      // Mark compressing immediately so the modal can show "Compressing…"
+      setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, compressing: true } : x)));
+      const compress = compressInBackground(item).then((patch) => {
+        setPending((cur) => cur.map((x) => (x.id === item.id ? { ...x, ...patch } : x)));
+      });
+      await Promise.all([decode, compress]);
+    })();
+    processingRef.current.set(item.id, p);
+    p.finally(() => processingRef.current.delete(item.id));
+  };
+
+  const addFiles = (files: FileList | File[]) => {
     const arr = Array.from(files);
-    if (pending.length + arr.length > MAX_COUNT) {
-      toast.error(`Max ${MAX_COUNT} images per message`);
-      return;
-    }
-    const prepared: PreparedImage[] = [];
+    // Instant modal — no awaits before this point.
+    const room = MAX_COUNT - pending.length;
+    if (room <= 0) { toast.error(`Max ${MAX_COUNT} images per message`); return; }
+    const accepted: File[] = [];
     for (const f of arr) {
-      try { prepared.push(await prepareImage(f)); }
-      catch (e) { toast.error(e instanceof Error ? e.message : `Skipped ${f.name}`); }
+      if (accepted.length >= room) { toast.error(`Only added the first ${room} image${room === 1 ? "" : "s"}`); break; }
+      const err = validateFile(f);
+      if (err) { toast.error(err); continue; }
+      accepted.push(f);
     }
-    if (prepared.length) {
-      setPending((p) => [...p, ...prepared]);
-      setPickerOpen(true);
-    }
+    if (accepted.length === 0) return;
+    const placeholders = accepted.map(makePlaceholder);
+    setPending((p) => [...p, ...placeholders]);
+    setPickerOpen(true);
+    // Fire-and-forget background processing (parallel per image).
+    for (const item of placeholders) processItem(item);
   };
 
   const sendImages = async (caption: string) => {
