@@ -282,21 +282,24 @@ export function ChatView({
       return;
     }
     const messageId = crypto.randomUUID();
+    console.log("[SEND] begin, messageId=", messageId, "mode=", mode, "count=", items.length);
     const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
       for (let i = 0; i < items.length; i++) {
         const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        console.log("[SEND] uploading", i + 1, "/", items.length, path);
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
+        console.log("[SEND] upload OK", path);
         uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
+      console.log("[SEND] calling sendImageFn (DB insert)…");
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined, mode } });
-      // Optimistic append for the sender so the message shows instantly even
-      // before the realtime echo lands. The realtime INSERT handler dedupes by id.
+      console.log("[SEND] DB insert OK", { messageId, mode });
       const nowIso = new Date().toISOString();
       const optimistic: MessageRow = {
         id: messageId,
@@ -312,11 +315,16 @@ export function ChatView({
         image_request_status: mode === "preview_once" ? "pending" : "accepted",
         expires_at: null,
       } as MessageRow;
-      setMessages((prev) => (prev.some((x) => x.id === messageId) ? prev : [...prev, optimistic]));
+      setMessages((prev) => {
+        if (prev.some((x) => x.id === messageId)) return prev;
+        console.log("[SEND] optimistic append", messageId, "count", prev.length, "->", prev.length + 1);
+        return [...prev, optimistic];
+      });
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
       setPickerOpen(false);
     } catch (e) {
+      console.error("[SEND] failed", e);
       toast.error(e instanceof Error ? e.message : "Upload failed");
       if (uploaded.length) {
         await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
