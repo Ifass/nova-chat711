@@ -306,6 +306,7 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
   const stageW = stageWidth.current || (typeof window !== "undefined" ? window.innerWidth : 1);
   const stripTx = -idx * stageW + offset;
   const dragging = gesture.current.mode === "swipe" && gesture.current.determined;
+  const panning = gesture.current.mode === "pan";
 
   // Which slides to render (windowed to ±1)
   const window2 = [idx - 1, idx, idx + 1].filter((i) => i >= 0 && i < items.length);
