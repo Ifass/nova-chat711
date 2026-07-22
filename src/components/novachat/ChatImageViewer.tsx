@@ -464,9 +464,3 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
     </div>
   );
 }
-
-// mouseDownPan ref shim for the render-time transition check.
-// (We only need to know "is the user currently dragging to pan a zoomed image?"
-// which is captured by the pointer gesture; we keep this ref for the transition
-// gating to avoid interpolating pan updates.)
-const mouseDownPan = { current: false as boolean };
