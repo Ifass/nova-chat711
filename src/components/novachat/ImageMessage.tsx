@@ -64,16 +64,17 @@ export function ImageMessage({
     finally { setLoading(false); }
   };
 
-  // ---------- RECEIVER: pending request card ----------
-  if (!mine && status === "pending") {
+  // ---------- RECEIVER: pending Preview Once request card ----------
+  if (!mine && status === "pending" && mode === "preview_once") {
     return (
       <Bubble mine={mine}>
         <div className="p-3 min-w-[260px]">
           <div className="flex items-center gap-2 mb-2">
             <Avatar className="size-8"><AvatarImage src={avatarUrl ?? undefined} /><AvatarFallback>{initials(displayName)}</AvatarFallback></Avatar>
             <div className="text-sm">
-              <span className="font-semibold">{displayName}</span> wants to send you{" "}
-              <span className="font-semibold">{attachments.length}</span> image{attachments.length === 1 ? "" : "s"}
+              <span className="font-semibold">{displayName}</span> sent a{" "}
+              <span className="font-semibold inline-flex items-center gap-1"><Eye className="size-3" />Preview Once</span>{" "}
+              image request ({attachments.length})
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1 mb-2">
@@ -86,11 +87,11 @@ export function ImageMessage({
           {msg.caption && <div className="text-sm mb-2 italic text-muted-foreground">"{msg.caption}"</div>}
           <div className="text-xs text-muted-foreground mb-3">Total: {formatBytes(totalSize)}</div>
           <div className="flex gap-2 flex-wrap">
-            <Button size="sm" onClick={doAccept} disabled={loading}>
-              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Accept
-            </Button>
             <Button size="sm" variant="secondary" onClick={doPreview} disabled={loading}>
               <Eye className="size-3.5" /> Preview once
+            </Button>
+            <Button size="sm" onClick={doAccept} disabled={loading}>
+              {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Accept permanently
             </Button>
             <Button size="sm" variant="ghost" onClick={doDecline} disabled={loading}>
               <X className="size-3.5" /> Decline
@@ -103,12 +104,12 @@ export function ImageMessage({
   }
 
   if (status === "declined") {
-    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Image request declined"} time={msg.created_at} /></Bubble>;
+    return <Bubble mine={mine}><Info icon={<Ban className="size-4" />} text={mine ? "Recipient declined your image" : "Request declined"} time={msg.created_at} /></Bubble>;
   }
   if (status === "expired") {
     return <Bubble mine={mine}><Info icon={<Clock className="size-4" />} text="Image request expired" time={msg.created_at} /></Bubble>;
   }
-  if (!mine && status === "previewed") {
+  if (!mine && status === "previewed" && mode === "preview_once") {
     return <Bubble mine={mine}><Info icon={<Eye className="size-4" />} text="Preview expired. Ask sender to resend." time={msg.created_at} /></Bubble>;
   }
 
