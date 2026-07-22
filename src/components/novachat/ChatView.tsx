@@ -618,6 +618,16 @@ export function ChatView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {dragActive && (
+        <div className="fixed inset-0 z-[60] pointer-events-none backdrop-blur-sm bg-background/60 flex items-center justify-center">
+          <div className="m-6 p-10 rounded-3xl border-2 border-dashed border-primary bg-card/90 shadow-2xl text-center">
+            <div className="text-5xl mb-3">📷</div>
+            <div className="text-lg font-semibold">Drop images to send</div>
+            <div className="text-sm text-muted-foreground mt-1">Up to {MAX_COUNT} images · 20MB each</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
