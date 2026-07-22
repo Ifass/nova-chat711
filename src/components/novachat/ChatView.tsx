@@ -61,11 +61,17 @@ export function ChatView({
   const [sending, setSending] = useState(false);
   const [calling, setCalling] = useState(false);
   const startCallFn = useServerFn(startCall);
+  const sendImageFn = useServerFn(sendImageRequest);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [pending, setPending] = useState<PreparedImage[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
