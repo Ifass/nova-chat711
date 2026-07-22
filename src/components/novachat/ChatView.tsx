@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { makePlaceholder, decodePreview, compressInBackground, validateFile, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
 import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
 import { ImageMessage } from "@/components/novachat/ImageMessage";
+import { ChatImageViewer, type GalleryItem } from "@/components/novachat/ChatImageViewer";
+import { getImageUrls } from "@/lib/image.functions";
 
 const CALL_MSG_PREFIX = "[[novacall]]";
 type CallLogPayload = {
@@ -62,8 +64,14 @@ export function ChatView({
   const [calling, setCalling] = useState(false);
   const startCallFn = useServerFn(startCall);
   const sendImageFn = useServerFn(sendImageRequest);
+  const getImageUrlsFn = useServerFn(getImageUrls);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // Chat gallery viewer state
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [previewCache, setPreviewCache] = useState<Record<string, string[]>>({});
+  const [thumbCache, setThumbCache] = useState<Record<string, string[]>>({});
+  const urlPromises = useRef<Map<string, Promise<string[]>>>(new Map());
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<PreparedImage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -153,6 +161,27 @@ export function ChatView({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, peerTyping, reactions]);
+
+  // Preload thumbnail URLs for image messages the user can view.
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.message_type !== "image_request") continue;
+      const mineMsg = m.sender_id === me.id;
+      const status = m.image_request_status ?? "pending";
+      if (!(mineMsg || status === "accepted")) continue;
+      if (thumbCache[m.id] || urlPromises.current.has(m.id)) continue;
+      const p = getImageUrlsFn({ data: { messageId: m.id } })
+        .then((r) => {
+          setThumbCache((c) => ({ ...c, [m.id]: r.urls }));
+          return r.urls;
+        })
+        .catch((e) => { urlPromises.current.delete(m.id); throw e; });
+      urlPromises.current.set(m.id, p);
+      p.catch(() => {}); // swallow; grid will just show placeholder
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
 
   const handleInput = (v: string) => {
     setInput(v);
@@ -356,6 +385,55 @@ export function ChatView({
     map.set(r.emoji, { count: cur.count + 1, mine: cur.mine || r.user_id === me.id });
   }
 
+  // ---------- Chat image gallery ----------
+  const galleryItems: GalleryItem[] = [];
+  for (const m of messages) {
+    if (m.message_type !== "image_request") continue;
+    const mineMsg = m.sender_id === me.id;
+    const status = m.image_request_status ?? "pending";
+    const canShow = mineMsg || status === "accepted" || !!previewCache[m.id];
+    if (!canShow) continue;
+    const atts = Array.isArray(m.attachments) ? m.attachments : [];
+    atts.forEach((_, i) => {
+      galleryItems.push({
+        key: `${m.id}:${i}`,
+        msgId: m.id,
+        attIndex: i,
+        senderId: m.sender_id,
+        createdAt: m.created_at,
+      });
+    });
+  }
+
+  const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
+
+  const resolveUrls = async (msgId: string): Promise<string[]> => {
+    const cached = previewCache[msgId];
+    if (cached) return cached;
+    let p = urlPromises.current.get(msgId);
+    if (!p) {
+      p = getImageUrlsFn({ data: { messageId: msgId } })
+        .then((r) => r.urls)
+        .catch((e) => { urlPromises.current.delete(msgId); throw e; });
+      urlPromises.current.set(msgId, p);
+    }
+    const urls = await p;
+    setThumbCache((c) => (c[msgId] ? c : { ...c, [msgId]: urls }));
+    return urls;
+  };
+
+  const openGallery = (msgId: string, attIndex: number) => setOpenKey(`${msgId}:${attIndex}`);
+  const closeGallery = () => {
+    setOpenKey(null);
+    // Preview-once URLs stop being usable once the viewer closes.
+    if (Object.keys(previewCache).length) setPreviewCache({});
+  };
+  const registerPreviewUrls = (msgId: string, urls: string[]) => {
+    setPreviewCache((c) => ({ ...c, [msgId]: urls }));
+  };
+
+
+
   return (
     <div className="flex flex-col h-full">
       <header className="h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-border bg-card">
@@ -412,7 +490,18 @@ export function ChatView({
             const rx = reactionsByMsg.get(m.id);
 
             if (m.message_type === "image_request") {
-              return <ImageMessage key={m.id} msg={m} me={me} peer={peer} mine={mine} />;
+              return (
+                <ImageMessage
+                  key={m.id}
+                  msg={m}
+                  me={me}
+                  peer={peer}
+                  mine={mine}
+                  thumbUrls={thumbCache[m.id] ?? previewCache[m.id]}
+                  onOpen={openGallery}
+                  onPreviewUrls={registerPreviewUrls}
+                />
+              );
             }
 
 
@@ -627,6 +716,17 @@ export function ChatView({
             <div className="text-sm text-muted-foreground mt-1">Up to {MAX_COUNT} images · 20MB each</div>
           </div>
         </div>
+      )}
+
+
+      {openKey && galleryItems.length > 0 && (
+        <ChatImageViewer
+          items={galleryItems}
+          startKey={openKey}
+          senders={senders}
+          resolveUrls={resolveUrls}
+          onClose={closeGallery}
+        />
       )}
     </div>
   );
