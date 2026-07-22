@@ -162,6 +162,27 @@ export function ChatView({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, peerTyping, reactions]);
 
+  // Preload thumbnail URLs for image messages the user can view.
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.message_type !== "image_request") continue;
+      const mineMsg = m.sender_id === me.id;
+      const status = m.image_request_status ?? "pending";
+      if (!(mineMsg || status === "accepted")) continue;
+      if (thumbCache[m.id] || urlPromises.current.has(m.id)) continue;
+      const p = getImageUrlsFn({ data: { messageId: m.id } })
+        .then((r) => {
+          setThumbCache((c) => ({ ...c, [m.id]: r.urls }));
+          return r.urls;
+        })
+        .catch((e) => { urlPromises.current.delete(m.id); throw e; });
+      urlPromises.current.set(m.id, p);
+      p.catch(() => {}); // swallow; grid will just show placeholder
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+
   const handleInput = (v: string) => {
     setInput(v);
     if (broadcastRef.current && v.length > 0) {
