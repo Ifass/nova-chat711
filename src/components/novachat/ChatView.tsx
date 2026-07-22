@@ -90,7 +90,7 @@ export function ChatView({
     const load = async () => {
       const { data } = await supabase
         .from("messages")
-        .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_request_status, expires_at")
+        .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_mode, image_request_status, expires_at")
         .or(`and(sender_id.eq.${me.id},receiver_id.eq.${peer.id}),and(sender_id.eq.${peer.id},receiver_id.eq.${me.id})`)
         .order("created_at", { ascending: true })
         .limit(500);
