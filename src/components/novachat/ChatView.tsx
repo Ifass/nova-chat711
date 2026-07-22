@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
+import { sendImageRequest } from "@/lib/image.functions";
 import { openVoiceCall } from "@/components/novachat/IncomingCallListener";
 import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,9 @@ import {
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
+import { prepareImage, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
+import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
+import { ImageMessage } from "@/components/novachat/ImageMessage";
 
 const CALL_MSG_PREFIX = "[[novacall]]";
 type CallLogPayload = {
