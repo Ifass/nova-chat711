@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { initials, formatTime, REACTION_EMOJIS, type ProfileLite, type MessageRow, type ReactionRow } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { prepareImage, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
+import { makePlaceholder, decodePreview, compressInBackground, validateFile, extForMime, ACCEPTED_TYPES, MAX_COUNT, type PreparedImage } from "@/lib/image-utils";
 import { ImagePreviewModal } from "@/components/novachat/ImagePreviewModal";
 import { ImageMessage } from "@/components/novachat/ImageMessage";
 
