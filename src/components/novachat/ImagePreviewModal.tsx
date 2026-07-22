@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon, Eye, Image as ImageIcon2 } from "lucide-react";
 import { formatBytes, type PreparedImage } from "@/lib/image-utils";
+import { cn } from "@/lib/utils";
+
+export type ImageMode = "normal" | "preview_once";
 
 export function ImagePreviewModal({
   open, images, onClose, onRemove, onSend, sending, progress,
@@ -12,14 +15,16 @@ export function ImagePreviewModal({
   images: PreparedImage[];
   onClose: () => void;
   onRemove: (id: string) => void;
-  onSend: (caption: string) => void;
+  onSend: (caption: string, mode: ImageMode) => void;
   sending: boolean;
   progress: number;
 }) {
   const [idx, setIdx] = useState(0);
   const [caption, setCaption] = useState("");
+  const [mode, setMode] = useState<ImageMode>("normal");
 
   useEffect(() => { if (idx >= images.length && images.length > 0) setIdx(images.length - 1); }, [images.length, idx]);
+  useEffect(() => { if (!open) { setMode("normal"); setCaption(""); } }, [open]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -85,6 +90,11 @@ export function ImagePreviewModal({
                 <X className="size-4" />
               </button>
             )}
+            {mode === "preview_once" && (
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-primary/90 text-primary-foreground text-[11px] flex items-center gap-1 font-medium">
+                <Eye className="size-3" /> Preview Once
+              </div>
+            )}
             {current.compressing && current.status !== "loading" && (
               <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/60 text-white text-[11px] flex items-center gap-1">
                 <Loader2 className="size-3 animate-spin" /> Compressing…
@@ -115,6 +125,19 @@ export function ImagePreviewModal({
             ))}
           </div>
         )}
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2 rounded-lg border border-border p-1 bg-muted/40">
+          <ModeChip active={mode === "normal"} onClick={() => setMode("normal")} disabled={sending}
+            icon={<ImageIcon2 className="size-3.5" />} label="Normal" />
+          <ModeChip active={mode === "preview_once"} onClick={() => setMode("preview_once")} disabled={sending}
+            icon={<Eye className="size-3.5" />} label="Preview Once" />
+        </div>
+        <div className="text-[11px] text-muted-foreground -mt-1 px-1">
+          {mode === "preview_once"
+            ? "Recipient can view once, accept permanently, or decline. Access revokes after preview."
+            : "Recipient receives the image immediately, saved to their chat."}
+        </div>
+
         <Input
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
@@ -130,11 +153,13 @@ export function ImagePreviewModal({
                 ? `Preparing ${readyCount}/${images.length}…`
                 : anyCompressing
                   ? "Compressing in background — you can still send."
-                  : "Sent as an image request — recipient will accept, preview, or decline."}
+                  : mode === "preview_once"
+                    ? "Sent as Preview Once."
+                    : "Sent as a normal image."}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={sending}>Cancel</Button>
-            <Button onClick={() => onSend(caption)} disabled={sending || images.length === 0 || anyLoading}>
+            <Button onClick={() => onSend(caption, mode)} disabled={sending || images.length === 0 || anyLoading}>
               {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {sending ? `${progress}%` : "Send"}
             </Button>
@@ -144,3 +169,21 @@ export function ImagePreviewModal({
     </Dialog>
   );
 }
+
+function ModeChip({ active, onClick, disabled, icon, label }: {
+  active: boolean; onClick: () => void; disabled?: boolean; icon: React.ReactNode; label: string;
+}) {
+  return (
+    <button
+      type="button" onClick={onClick} disabled={disabled}
+      className={cn(
+        "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted",
+        disabled && "opacity-60 cursor-not-allowed",
+      )}
+    >
+      {icon}{label}
+    </button>
+  );
+}
+
