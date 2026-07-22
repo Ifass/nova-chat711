@@ -385,25 +385,20 @@ export function ChatView({
     map.set(r.emoji, { count: cur.count + 1, mine: cur.mine || r.user_id === me.id });
   }
 
-  // ---------- Chat image gallery ----------
-  const galleryItems: GalleryItem[] = [];
-  for (const m of messages) {
-    if (m.message_type !== "image_request") continue;
-    const mineMsg = m.sender_id === me.id;
-    const status = m.image_request_status ?? "pending";
-    const canShow = mineMsg || status === "accepted" || !!previewCache[m.id];
-    if (!canShow) continue;
-    const atts = Array.isArray(m.attachments) ? m.attachments : [];
-    atts.forEach((_, i) => {
-      galleryItems.push({
-        key: `${m.id}:${i}`,
-        msgId: m.id,
+  // ---------- Chat image gallery (scoped to a single message) ----------
+  // Each image message opens its OWN gallery — navigation never crosses
+  // into other messages. Required for Preview Once privacy, and matches
+  // requested behavior for normal accepted images too.
+  const openMsg = openKey ? messages.find((m) => m.id === openKey.split(":")[0]) : null;
+  const galleryItems: GalleryItem[] = openMsg
+    ? (Array.isArray(openMsg.attachments) ? openMsg.attachments : []).map((_, i) => ({
+        key: `${openMsg.id}:${i}`,
+        msgId: openMsg.id,
         attIndex: i,
-        senderId: m.sender_id,
-        createdAt: m.created_at,
-      });
-    });
-  }
+        senderId: openMsg.sender_id,
+        createdAt: openMsg.created_at,
+      }))
+    : [];
 
   const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
 
