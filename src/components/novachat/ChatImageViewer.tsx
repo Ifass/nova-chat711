@@ -125,8 +125,8 @@ export function ChatImageViewer({ items, startKey, senders, resolveUrls, onClose
   }>({ mode: "none", startX: 0, startY: 0, startPan: { x: 0, y: 0 }, pinchStart: 0, zoomStart: 1, lastTap: 0 });
   const [dragX, setDragX] = useState(0);
 
-  const dist = (t: TouchList) => {
-    const [a, b] = [t[0], t[1]];
+  const dist = (t: React.TouchList) => {
+    const a = t[0], b = t[1];
     return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
   };
 
