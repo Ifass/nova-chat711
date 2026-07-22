@@ -247,7 +247,7 @@ export function ChatView({
     for (const item of placeholders) processItem(item);
   };
 
-  const sendImages = async (caption: string) => {
+  const sendImages = async (caption: string, mode: "normal" | "preview_once" = "normal") => {
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
@@ -272,7 +272,7 @@ export function ChatView({
         uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
-      await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined } });
+      await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined, mode } });
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
       setPickerOpen(false);
@@ -286,6 +286,7 @@ export function ChatView({
       setUploadPct(0);
     }
   };
+
 
   const removePending = (id: string) => {
     setPending((p) => {
