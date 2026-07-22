@@ -71,14 +71,14 @@ export async function compressInBackground(item: PreparedImage): Promise<Partial
   // Don't recompress GIFs (would lose animation)
   if (item.mime === "image/gif") return { compressing: false };
   try {
-    const compressed = await imageCompression(item.originalFile, {
+    const compressed: File = await imageCompression(item.originalFile, {
       maxWidthOrHeight: MAX_EDGE,
       maxSizeMB: 3,
       useWebWorker: true,
       initialQuality: 0.85,
       fileType: item.mime === "image/png" ? "image/png" : "image/jpeg",
     });
-    const outFile = compressed instanceof File
+    const outFile: File = compressed instanceof File
       ? compressed
       : new File([compressed], item.originalFile.name, { type: compressed.type });
     const newUrl = URL.createObjectURL(outFile);
