@@ -88,6 +88,13 @@ export function ChatView({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      // Ensure realtime socket carries the current user JWT so RLS-filtered
+      // postgres_changes deliver INSERT/UPDATE/DELETE events to this client.
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (token) {
+        try { await supabase.realtime.setAuth(token); } catch { /* ignore */ }
+      }
       const { data } = await supabase
         .from("messages")
         .select("id, sender_id, receiver_id, content, read_at, created_at, message_type, attachments, caption, image_mode, image_request_status, expires_at")
