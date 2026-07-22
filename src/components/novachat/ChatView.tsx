@@ -64,8 +64,14 @@ export function ChatView({
   const [calling, setCalling] = useState(false);
   const startCallFn = useServerFn(startCall);
   const sendImageFn = useServerFn(sendImageRequest);
+  const getImageUrlsFn = useServerFn(getImageUrls);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // Chat gallery viewer state
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [previewCache, setPreviewCache] = useState<Record<string, string[]>>({});
+  const [thumbCache, setThumbCache] = useState<Record<string, string[]>>({});
+  const urlPromises = useRef<Map<string, Promise<string[]>>>(new Map());
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<PreparedImage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
