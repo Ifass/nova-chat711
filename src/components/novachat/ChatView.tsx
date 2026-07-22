@@ -469,7 +469,18 @@ export function ChatView({
             const rx = reactionsByMsg.get(m.id);
 
             if (m.message_type === "image_request") {
-              return <ImageMessage key={m.id} msg={m} me={me} peer={peer} mine={mine} />;
+              return (
+                <ImageMessage
+                  key={m.id}
+                  msg={m}
+                  me={me}
+                  peer={peer}
+                  mine={mine}
+                  thumbUrls={thumbCache[m.id] ?? previewCache[m.id]}
+                  onOpen={openGallery}
+                  onPreviewUrls={registerPreviewUrls}
+                />
+              );
             }
 
 
