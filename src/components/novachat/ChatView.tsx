@@ -87,13 +87,18 @@ export function ChatView({
 
   useEffect(() => {
     let cancelled = false;
+    console.log("[RT] mount ChatView, conversationKey=", conversationKey, "me=", me.id, "peer=", peer.id);
     const load = async () => {
-      // Ensure realtime socket carries the current user JWT so RLS-filtered
-      // postgres_changes deliver INSERT/UPDATE/DELETE events to this client.
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
+      console.log("[RT] auth token present?", !!token, "len=", token?.length ?? 0);
       if (token) {
-        try { await supabase.realtime.setAuth(token); } catch { /* ignore */ }
+        try {
+          await supabase.realtime.setAuth(token);
+          console.log("[RT] supabase.realtime.setAuth() OK");
+        } catch (e) { console.warn("[RT] setAuth failed", e); }
+      } else {
+        console.warn("[RT] NO ACCESS TOKEN — realtime will be anon; RLS-filtered events will drop");
       }
       const { data } = await supabase
         .from("messages")
@@ -116,19 +121,26 @@ export function ChatView({
     };
     load();
 
+    console.log("[RT] creating channel conv-db-" + conversationKey);
     const dbChannel = supabase
       .channel(`conv-db-${conversationKey}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const m = payload.new as MessageRow;
+        console.log("[RT] INSERT recv", { id: m.id, sender: m.sender_id, receiver: m.receiver_id, type: m.message_type, mode: m.image_mode });
         const involvesPair = (m.sender_id === me.id && m.receiver_id === peer.id) || (m.sender_id === peer.id && m.receiver_id === me.id);
-        if (!involvesPair) return;
-        setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        if (!involvesPair) { console.log("[RT] INSERT ignored — not this pair", { me: me.id, peer: peer.id }); return; }
+        setMessages((prev) => {
+          if (prev.some((x) => x.id === m.id)) { console.log("[RT] INSERT dedup", m.id, "count", prev.length); return prev; }
+          console.log("[RT] append", m.id, "count", prev.length, "->", prev.length + 1);
+          return [...prev, m];
+        });
         if (m.sender_id === peer.id) {
           supabase.from("messages").update({ read_at: new Date().toISOString() }).eq("id", m.id).then(() => {});
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
         const m = payload.new as MessageRow;
+        console.log("[RT] UPDATE recv", m.id, "status=", m.image_request_status);
         setMessages((prev) => prev.map((x) => (x.id === m.id ? m : x)));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
@@ -143,7 +155,9 @@ export function ChatView({
         const r = payload.old as ReactionRow;
         setReactions((prev) => prev.filter((x) => x.id !== r.id));
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("[RT] dbChannel status=", status, err ?? "");
+      });
 
     const broadcast = supabase
       .channel(`conv-bcast-${conversationKey}`, { config: { broadcast: { self: false } } })
@@ -158,6 +172,7 @@ export function ChatView({
     broadcastRef.current = broadcast;
 
     return () => {
+      console.log("[RT] cleanup — removeChannel for", conversationKey);
       cancelled = true;
       supabase.removeChannel(dbChannel);
       supabase.removeChannel(broadcast);
@@ -267,21 +282,24 @@ export function ChatView({
       return;
     }
     const messageId = crypto.randomUUID();
+    console.log("[SEND] begin, messageId=", messageId, "mode=", mode, "count=", items.length);
     const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
       for (let i = 0; i < items.length; i++) {
         const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        console.log("[SEND] uploading", i + 1, "/", items.length, path);
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
+        console.log("[SEND] upload OK", path);
         uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
+      console.log("[SEND] calling sendImageFn (DB insert)…");
       await sendImageFn({ data: { messageId, receiverId: peer.id, attachments: uploaded, caption: caption || undefined, mode } });
-      // Optimistic append for the sender so the message shows instantly even
-      // before the realtime echo lands. The realtime INSERT handler dedupes by id.
+      console.log("[SEND] DB insert OK", { messageId, mode });
       const nowIso = new Date().toISOString();
       const optimistic: MessageRow = {
         id: messageId,
@@ -297,11 +315,16 @@ export function ChatView({
         image_request_status: mode === "preview_once" ? "pending" : "accepted",
         expires_at: null,
       } as MessageRow;
-      setMessages((prev) => (prev.some((x) => x.id === messageId) ? prev : [...prev, optimistic]));
+      setMessages((prev) => {
+        if (prev.some((x) => x.id === messageId)) return prev;
+        console.log("[SEND] optimistic append", messageId, "count", prev.length, "->", prev.length + 1);
+        return [...prev, optimistic];
+      });
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
       setPickerOpen(false);
     } catch (e) {
+      console.error("[SEND] failed", e);
       toast.error(e instanceof Error ? e.message : "Upload failed");
       if (uploaded.length) {
         await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
