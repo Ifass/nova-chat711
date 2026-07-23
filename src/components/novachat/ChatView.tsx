@@ -86,6 +86,32 @@ export function ChatView({
 
   const conversationKey = [me.id, peer.id].sort().join(":");
 
+  // ---------- Selection mode (WhatsApp-style) ----------
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectionMode = selected.size > 0;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  const pinnedKey = `nc:pinned:${conversationKey}`;
+  const [pinned, setPinned] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(`nc:pinned:${[me.id, peer.id].sort().join(":")}`);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(pinnedKey, JSON.stringify(Array.from(pinned))); } catch { /* ignore */ }
+  }, [pinned, pinnedKey]);
+
+  const enterSelect = (id: string) => setSelected((s) => (s.has(id) ? s : new Set(s).add(id)));
+  const toggleSelect = (id: string) => setSelected((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const clearSelection = () => setSelected(new Set());
+
+
   useEffect(() => {
     let cancelled = false;
     console.log("[RT] mount ChatView, conversationKey=", conversationKey, "me=", me.id, "peer=", peer.id);
