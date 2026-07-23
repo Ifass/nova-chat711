@@ -771,30 +771,41 @@ export function ChatView({
                 } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
               };
               return (
-                <div key={m.id} className="flex justify-center my-2">
-                  <div className="flex items-center gap-2 bg-card/80 border border-border rounded-full pl-3 pr-1 py-1 shadow-sm text-xs">
-                    <Icon className={cn("size-4", tone)} />
-                    <span className={cn("font-medium", missed && !iAmCaller && "text-destructive")}>{label}</span>
-                    <span className="text-muted-foreground">· {formatTime(m.created_at)}</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button aria-label="Call log options" className="p-1 rounded-full hover:bg-muted text-muted-foreground">
-                          <MoreVertical className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={callBack}>
-                          <Phone className="size-4 mr-2" /> Call back
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
-                          <Trash2 className="size-4 mr-2" /> Delete log
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                <SelectableMsg
+                  key={m.id}
+                  msgId={m.id}
+                  selected={selected.has(m.id)}
+                  selectionMode={selectionMode}
+                  pinned={pinned.has(m.id)}
+                  onEnter={enterSelect}
+                  onToggle={toggleSelect}
+                >
+                  <div className="flex justify-center my-2">
+                    <div className="flex items-center gap-2 bg-card/80 border border-border rounded-full pl-3 pr-1 py-1 shadow-sm text-xs">
+                      <Icon className={cn("size-4", tone)} />
+                      <span className={cn("font-medium", missed && !iAmCaller && "text-destructive")}>{label}</span>
+                      <span className="text-muted-foreground">· {formatTime(m.created_at)}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button aria-label="Call log options" className="p-1 rounded-full hover:bg-muted text-muted-foreground">
+                            <MoreVertical className="size-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={callBack}>
+                            <Phone className="size-4 mr-2" /> Call back
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
+                            <Trash2 className="size-4 mr-2" /> Delete log
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
+                </SelectableMsg>
               );
             }
+
 
             return (
               <div key={m.id} className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
