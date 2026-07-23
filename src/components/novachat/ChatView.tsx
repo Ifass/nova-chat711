@@ -434,28 +434,18 @@ export function ChatView({
     map.set(r.emoji, { count: cur.count + 1, mine: cur.mine || r.user_id === me.id });
   }
 
-  // ---------- Chat image galleries (two independent viewers) ----------
-  // Normal viewer: navigates every normal image in the conversation.
-  // Preview Once viewer: scoped to the single message only (privacy).
-  const openMsg = openKey ? messages.find((m) => m.id === openKey.split(":")[0]) : null;
-  const isPreviewOnceOpen = openMsg?.image_mode === "preview_once";
+  // ---------- FLOW 1: Normal conversation gallery (independent) ----------
+  // Included: image_mode === 'normal' OR (image_mode === 'request' AND status === 'accepted')
+  // Excluded: preview_once (isolated flow), unaccepted requests.
+  const normalOpenMsg = normalOpenKey ? messages.find((m) => m.id === normalOpenKey.split(":")[0]) : null;
 
-  const galleryItems: GalleryItem[] = (() => {
-    if (!openMsg) return [];
-    if (isPreviewOnceOpen) {
-      return (Array.isArray(openMsg.attachments) ? openMsg.attachments : []).map((_, i) => ({
-        key: `${openMsg.id}:${i}`,
-        msgId: openMsg.id,
-        attIndex: i,
-        senderId: openMsg.sender_id,
-        createdAt: openMsg.created_at,
-      }));
-    }
-    // Normal: every normal image message in the conversation.
+  const normalGalleryItems: GalleryItem[] = (() => {
     const items: GalleryItem[] = [];
     for (const m of messages) {
       if (m.message_type !== "image_request") continue;
-      if (m.image_mode === "preview_once") continue;
+      const mode = m.image_mode ?? "normal";
+      if (mode === "preview_once") continue;
+      if (mode === "request" && m.image_request_status !== "accepted") continue;
       const atts = Array.isArray(m.attachments) ? m.attachments : [];
       for (let i = 0; i < atts.length; i++) {
         items.push({
@@ -472,8 +462,8 @@ export function ChatView({
 
   const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
 
-  const resolveUrls = async (msgId: string): Promise<string[]> => {
-    const cached = previewCache[msgId];
+  const resolveNormalUrls = async (msgId: string): Promise<string[]> => {
+    const cached = thumbCache[msgId];
     if (cached) return cached;
     let p = urlPromises.current.get(msgId);
     if (!p) {
@@ -487,15 +477,26 @@ export function ChatView({
     return urls;
   };
 
-  const openGallery = (msgId: string, attIndex: number) => setOpenKey(`${msgId}:${attIndex}`);
-  const closeGallery = () => {
-    setOpenKey(null);
-    // Preview-once URLs stop being usable once the viewer closes.
-    if (Object.keys(previewCache).length) setPreviewCache({});
-  };
-  const registerPreviewUrls = (msgId: string, urls: string[]) => {
-    setPreviewCache((c) => ({ ...c, [msgId]: urls }));
-  };
+  const openNormalGallery = (msgId: string, attIndex: number) => setNormalOpenKey(`${msgId}:${attIndex}`);
+  const closeNormalGallery = () => setNormalOpenKey(null);
+
+  // ---------- FLOW 3: Preview Once isolated viewer (independent) ----------
+  const openPreviewOnce = (msgId: string, urls: string[]) => setPreviewOnce({ msgId, urls });
+  const closePreviewOnce = () => setPreviewOnce(null); // signed URLs are dropped from memory here
+
+  const previewOnceItems: GalleryItem[] = previewOnce
+    ? previewOnce.urls.map((_, i) => {
+        const m = messages.find((x) => x.id === previewOnce.msgId);
+        return {
+          key: `${previewOnce.msgId}:${i}`,
+          msgId: previewOnce.msgId,
+          attIndex: i,
+          senderId: m?.sender_id ?? peer.id,
+          createdAt: m?.created_at ?? new Date().toISOString(),
+        };
+      })
+    : [];
+  const resolvePreviewOnceUrls = async (): Promise<string[]> => previewOnce?.urls ?? [];
 
 
 
@@ -562,9 +563,9 @@ export function ChatView({
                   me={me}
                   peer={peer}
                   mine={mine}
-                  thumbUrls={thumbCache[m.id] ?? previewCache[m.id]}
-                  onOpen={openGallery}
-                  onPreviewUrls={registerPreviewUrls}
+                  thumbUrls={thumbCache[m.id]}
+                  onOpen={openNormalGallery}
+                  onOpenPreviewOnce={openPreviewOnce}
                 />
               );
             }
@@ -784,14 +785,27 @@ export function ChatView({
       )}
 
 
-      {openKey && galleryItems.length > 0 && (
+      {/* FLOW 1 — Normal conversation gallery */}
+      {normalOpenKey && normalGalleryItems.length > 0 && (
         <ChatImageViewer
-          items={galleryItems}
-          startKey={openKey}
+          items={normalGalleryItems}
+          startKey={normalOpenKey}
           senders={senders}
-          resolveUrls={resolveUrls}
-          onClose={closeGallery}
-          badge={openMsg?.image_mode === "preview_once" ? "Preview Once · Temporary Access" : null}
+          resolveUrls={resolveNormalUrls}
+          onClose={closeNormalGallery}
+          badge={null}
+        />
+      )}
+
+      {/* FLOW 3 — Preview Once isolated viewer (single message, one-shot) */}
+      {previewOnce && previewOnceItems.length > 0 && (
+        <ChatImageViewer
+          items={previewOnceItems}
+          startKey={previewOnceItems[0].key}
+          senders={senders}
+          resolveUrls={resolvePreviewOnceUrls}
+          onClose={closePreviewOnce}
+          badge="Preview Once · Temporary Access"
         />
       )}
     </div>
