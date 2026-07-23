@@ -713,18 +713,28 @@ export function ChatView({
 
             if (m.message_type === "image_request") {
               return (
-                <ImageMessage
+                <SelectableMsg
                   key={m.id}
-                  msg={m}
-                  me={me}
-                  peer={peer}
-                  mine={mine}
-                  thumbUrls={thumbCache[m.id]}
-                  onOpen={openNormalGallery}
-                  onOpenPreviewOnce={openPreviewOnce}
-                />
+                  msgId={m.id}
+                  selected={selected.has(m.id)}
+                  selectionMode={selectionMode}
+                  pinned={pinned.has(m.id)}
+                  onEnter={enterSelect}
+                  onToggle={toggleSelect}
+                >
+                  <ImageMessage
+                    msg={m}
+                    me={me}
+                    peer={peer}
+                    mine={mine}
+                    thumbUrls={thumbCache[m.id]}
+                    onOpen={openNormalGallery}
+                    onOpenPreviewOnce={openPreviewOnce}
+                  />
+                </SelectableMsg>
               );
             }
+
 
 
 
