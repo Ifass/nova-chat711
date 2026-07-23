@@ -904,12 +904,27 @@ export function ChatView({
 
       <form
         onSubmit={send}
-        className="p-3 border-t border-border bg-card"
+        className="border-t border-border bg-card"
         onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
         onDrop={(e) => {
           if (e.dataTransfer.files?.length) { e.preventDefault(); addFiles(e.dataTransfer.files); }
         }}
       >
+        {replyTo && (
+          <div className="max-w-3xl mx-auto flex items-center gap-2 px-3 pt-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <div className="flex-1 min-w-0 pl-3 border-l-2 border-primary bg-muted/40 rounded-r-md py-1.5 pr-2">
+              <div className="text-[11px] font-semibold text-primary">
+                Replying to {replyTo.sender_id === me.id ? "yourself" : peer.display_name}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{previewOf(replyTo)}</div>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={() => setReplyTo(null)} aria-label="Cancel reply">
+              <X className="size-4" />
+            </Button>
+          </div>
+        )}
+        <div className="p-3">
+
         <div className="max-w-3xl mx-auto flex gap-2 items-center">
           <input
             ref={fileInputRef} type="file" accept={ACCEPTED_TYPES.join(",")} multiple className="hidden"
