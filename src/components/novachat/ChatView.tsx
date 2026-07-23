@@ -624,6 +624,38 @@ export function ChatView({
 
   return (
     <div className="flex flex-col h-full">
+      {selectionMode ? (
+        <header className="h-16 px-3 sm:px-4 flex items-center gap-2 border-b border-border bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <Button variant="ghost" size="icon" onClick={clearSelection} aria-label="Cancel selection">
+            <X className="size-5" />
+          </Button>
+          <div className="flex-1 min-w-0 font-semibold">
+            {selected.size} Selected
+          </div>
+          <Button
+            variant="ghost" size="icon" aria-label={allSelectedPinned ? "Unpin" : "Pin"}
+            onClick={doPin} title={allSelectedPinned ? "Unpin" : "Pin"}
+          >
+            <Pin className={cn("size-5", allSelectedPinned && "fill-current text-primary")} />
+          </Button>
+          {allSelectedText && (
+            <Button variant="ghost" size="icon" aria-label="Copy" onClick={doCopy} title="Copy">
+              <Copy className="size-5" />
+            </Button>
+          )}
+          {canReply && (
+            <Button variant="ghost" size="icon" aria-label="Reply" onClick={doReply} title="Reply">
+              <Reply className="size-5" />
+            </Button>
+          )}
+          <Button
+            variant="ghost" size="icon" aria-label="Delete" onClick={() => setConfirmDelete(true)}
+            className="text-destructive hover:text-destructive" title="Delete"
+          >
+            <Trash2 className="size-5" />
+          </Button>
+        </header>
+      ) : (
       <header className="h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-border bg-card">
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to conversations">
           <ArrowLeft className="size-5" />
@@ -668,6 +700,8 @@ export function ChatView({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+      )}
+
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto chat-pattern p-3 sm:p-4">
         <div className="max-w-3xl mx-auto space-y-1.5">
