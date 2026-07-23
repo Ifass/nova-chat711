@@ -34,28 +34,40 @@ export function PreviewOnceMessage({
   const status = msg.image_request_status ?? "pending";
   const attachments: Att[] = Array.isArray(msg.attachments) ? (msg.attachments as Att[]) : [];
 
-  // Terminal placeholder — after view or reject.
-  if (status === "previewed" || status === "declined" || status === "expired") {
-    const rejected = status === "declined";
+  // Rejected — keep the exact image container, apply heavy blur (Telegram-style).
+  if (status === "declined") {
+    return (
+      <RejectedImageGrid
+        mine={mine}
+        attachments={attachments}
+        thumbUrls={thumbUrls}
+        createdAt={msg.created_at}
+        badge={
+          <div className="px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] flex items-center gap-1 font-medium shadow">
+            <Eye className="size-3" /> Preview Once
+          </div>
+        }
+      />
+    );
+  }
+
+  // Terminal: previewed / expired — keep the informational card.
+  if (status === "previewed" || status === "expired") {
     return (
       <Bubble mine={mine}>
         <div className="p-3 min-w-[240px] max-w-[300px]">
           <div className="flex items-start gap-3">
             <div className="size-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-              {rejected ? <Ban className="size-5 text-muted-foreground" /> : <EyeOff className="size-5 text-muted-foreground" />}
+              <EyeOff className="size-5 text-muted-foreground" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold flex items-center gap-1.5">
                 <Eye className="size-3.5" /> Preview Once Image
               </div>
               <div className="text-xs mt-0.5 flex items-center gap-1">
-                {rejected ? (
-                  <span className="text-destructive">🚫 Preview Once image rejected</span>
-                ) : (
-                  <span className="text-primary flex items-center gap-1">
-                    <Check className="size-3" /> 👁 Viewed
-                  </span>
-                )}
+                <span className="text-primary flex items-center gap-1">
+                  <Check className="size-3" /> 👁 Viewed
+                </span>
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 This image is no longer available.
