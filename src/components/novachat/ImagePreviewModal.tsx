@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon, Eye, Image as ImageIcon2, ImageDown } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon, Eye, Image as ImageIcon2 } from "lucide-react";
 import { formatBytes, type PreparedImage } from "@/lib/image-utils";
 import { cn } from "@/lib/utils";
 
-export type ImageMode = "normal" | "request" | "preview_once";
+export type ImageMode = "normal" | "preview_once";
 
 export function ImagePreviewModal({
   open, images, onClose, onRemove, onSend, sending, progress,
@@ -125,21 +125,17 @@ export function ImagePreviewModal({
             ))}
           </div>
         )}
-        {/* Mode toggle */}
+        {/* Mode toggle — receiver approves either way; Preview Once destroys after viewing */}
         <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/40">
           <ModeChip active={mode === "normal"} onClick={() => setMode("normal")} disabled={sending}
             icon={<ImageIcon2 className="size-3.5" />} label="Normal" />
-          <ModeChip active={mode === "request"} onClick={() => setMode("request")} disabled={sending}
-            icon={<ImageDown className="size-3.5" />} label="Image Request" />
           <ModeChip active={mode === "preview_once"} onClick={() => setMode("preview_once")} disabled={sending}
             icon={<Eye className="size-3.5" />} label="Preview Once" />
         </div>
         <div className="text-[11px] text-muted-foreground -mt-1 px-1">
           {mode === "preview_once"
-            ? "Recipient can view the image once. Access revokes after they open it."
-            : mode === "request"
-              ? "Recipient must Accept or Reject. Accepted images are saved permanently to the chat."
-              : "Recipient receives the image immediately, saved to their chat."}
+            ? "Recipient must Accept to view once. Image is destroyed after they close it."
+            : "Recipient must Accept to download. Rejected images are never delivered."}
         </div>
 
         <Input
@@ -159,7 +155,7 @@ export function ImagePreviewModal({
                   ? "Compressing in background — you can still send."
                   : mode === "preview_once"
                     ? "Sent as Preview Once."
-                    : "Sent as a normal image."}
+                    : "Waiting for recipient to accept."}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={sending}>Cancel</Button>

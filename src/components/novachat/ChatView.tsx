@@ -269,7 +269,7 @@ export function ChatView({
     for (const item of placeholders) processItem(item);
   };
 
-  const sendImages = async (caption: string, mode: "normal" | "request" | "preview_once" = "normal") => {
+  const sendImages = async (caption: string, mode: "normal" | "preview_once" = "normal") => {
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
@@ -312,7 +312,7 @@ export function ChatView({
         message_type: "image_request",
         attachments: uploaded as unknown as MessageRow["attachments"],
         image_mode: mode,
-        image_request_status: mode === "normal" ? "accepted" : "pending",
+        image_request_status: "pending",
         expires_at: null,
       } as MessageRow;
       setMessages((prev) => {
@@ -445,7 +445,12 @@ export function ChatView({
       if (m.message_type !== "image_request") continue;
       const mode = m.image_mode ?? "normal";
       if (mode === "preview_once") continue;
-      if (mode === "request" && m.image_request_status !== "accepted") continue;
+      const status = m.image_request_status ?? "accepted";
+      const mineMsg = m.sender_id === me.id;
+      // Sender always sees their own; receiver only after acceptance.
+      if (!mineMsg && status !== "accepted") continue;
+      // Never surface declined/expired in the gallery.
+      if (status === "declined" || status === "expired") continue;
       const atts = Array.isArray(m.attachments) ? m.attachments : [];
       for (let i = 0; i < atts.length; i++) {
         items.push({
