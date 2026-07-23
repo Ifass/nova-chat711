@@ -15,6 +15,8 @@ export type PreparedImage = {
   originalFile: File;
   /** Instant object URL — available as soon as the file is picked. */
   previewUrl: string;
+  /** Small static thumbnail used for blurred rejected-image bubbles. */
+  thumbnailFile?: File;
   width: number;
   height: number;
   size: number;
@@ -30,6 +32,36 @@ function readDimensions(url: string): Promise<{ width: number; height: number }>
     el.onerror = () => reject(new Error("Invalid image"));
     el.src = url;
   });
+}
+
+async function createThumbnailFile(file: File): Promise<File> {
+  const url = URL.createObjectURL(file);
+  try {
+    const dims = await readDimensions(url);
+    const maxEdge = 480;
+    const scale = Math.min(1, maxEdge / Math.max(dims.width, dims.height));
+    const width = Math.max(1, Math.round(dims.width * scale));
+    const height = Math.max(1, Math.round(dims.height * scale));
+    const img = new Image();
+    img.decoding = "async";
+    const loaded = new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Thumbnail failed"));
+    });
+    img.src = url;
+    await loaded;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable");
+    ctx.drawImage(img, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.55));
+    if (!blob) throw new Error("Thumbnail failed");
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-thumb.jpg`, { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /** Instant, synchronous-ish placeholder. Never blocks — no decoding, no compression. */
@@ -69,21 +101,31 @@ export async function decodePreview(item: PreparedImage): Promise<Partial<Prepar
 /** Heavy work — runs in a Web Worker via browser-image-compression. */
 export async function compressInBackground(item: PreparedImage): Promise<Partial<PreparedImage>> {
   // Don't recompress GIFs (would lose animation)
-  if (item.mime === "image/gif") return { compressing: false };
+  if (item.mime === "image/gif") {
+    try {
+      return { thumbnailFile: await createThumbnailFile(item.originalFile), compressing: false };
+    } catch {
+      return { compressing: false };
+    }
+  }
   try {
-    const compressed: File = await imageCompression(item.originalFile, {
+    const [compressed, thumbnailFile]: [File, File | undefined] = await Promise.all([
+      imageCompression(item.originalFile, {
       maxWidthOrHeight: MAX_EDGE,
       maxSizeMB: 3,
       useWebWorker: true,
       initialQuality: 0.85,
       fileType: item.mime === "image/png" ? "image/png" : "image/jpeg",
-    });
+      }),
+      createThumbnailFile(item.originalFile).catch(() => undefined),
+    ]);
     const outFile: File = compressed;
     const newUrl = URL.createObjectURL(outFile);
     URL.revokeObjectURL(item.previewUrl);
     return {
       file: outFile,
       previewUrl: newUrl,
+      thumbnailFile,
       size: outFile.size,
       mime: outFile.type,
       compressing: false,

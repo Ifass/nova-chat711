@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type Attachment = {
   path: string;
+  thumbPath?: string;
   size: number;
   width: number;
   height: number;
@@ -20,6 +21,25 @@ async function signPaths(paths: string[]) {
   return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
 }
 
+async function signThumbnailPaths(attachments: Attachment[]) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const thumbPaths = attachments.map((a) => a.thumbPath).filter((p): p is string => !!p);
+  if (thumbPaths.length === attachments.length) return signPaths(thumbPaths);
+
+  // Legacy fallback: return a transformed, low-resolution signed URL instead
+  // of exposing the original full-resolution path to rejected receivers.
+  const results = await Promise.all(
+    attachments.map((a) =>
+      supabaseAdmin.storage
+        .from("chat-images")
+        .createSignedUrl(a.path, SIGN_TTL, { transform: { width: 480, resize: "contain", quality: 45 } }),
+    ),
+  );
+  const error = results.find((r) => r.error)?.error;
+  if (error) throw new Error(error.message);
+  return results.map((r) => r.data?.signedUrl).filter((u): u is string => !!u);
+}
+
 /** Sender creates an image message. Files must already be uploaded under `${userId}/${messageId}/...`. */
 export const sendImageRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -35,6 +55,7 @@ export const sendImageRequest = createServerFn({ method: "POST" })
     if (data.receiverId === userId) throw new Error("Can't send to yourself");
     for (const a of data.attachments) {
       if (!a.path.startsWith(`${userId}/${data.messageId}/`)) throw new Error("Invalid attachment path");
+      if (a.thumbPath && !a.thumbPath.startsWith(`${userId}/${data.messageId}/thumbs/`)) throw new Error("Invalid thumbnail path");
     }
     const now = new Date();
     const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -119,11 +140,17 @@ export const respondImageRequest = createServerFn({ method: "POST" })
     return { status: "previewed" as const, urls };
   });
 
-/** Get signed URLs for a message the caller already has access to (sender always; receiver only if accepted). */
+/**
+ * Get signed image URLs for a message.
+ * Full-size viewing remains sender-only or receiver-after-accept.
+ * Thumbnail use is also allowed after decline so the rejected bubble can keep
+ * the original image element and render the existing thumbnail blurred.
+ */
 export const getImageUrls = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { messageId: string }) => {
+  .inputValidator((d: { messageId: string; purpose?: "full" | "thumbnail" }) => {
     if (!d?.messageId) throw new Error("messageId required");
+    if (d.purpose && !["full", "thumbnail"].includes(d.purpose)) throw new Error("Invalid purpose");
     return d;
   })
   .handler(async ({ data, context }) => {
@@ -138,7 +165,15 @@ export const getImageUrls = createServerFn({ method: "POST" })
     const isSender = msg.sender_id === userId;
     const isReceiver = msg.receiver_id === userId;
     if (!isSender && !isReceiver) throw new Error("Forbidden");
-    if (!isSender && msg.image_request_status !== "accepted") throw new Error("Not accepted");
-    const urls = await signPaths(((msg.attachments as unknown) as Attachment[]).map((a) => a.path));
+    const status = msg.image_request_status ?? "pending";
+    const purpose = data.purpose ?? "full";
+    const canViewFull = isSender || (isReceiver && status === "accepted");
+    const canViewThumbnail = isSender || (isReceiver && (status === "accepted" || status === "declined" || status === "expired"));
+    if (purpose === "full" && !canViewFull) throw new Error("Not accepted");
+    if (purpose === "thumbnail" && !canViewThumbnail) throw new Error("Thumbnail unavailable");
+    const attachments = ((msg.attachments as unknown) as Attachment[]);
+    const urls = purpose === "thumbnail"
+      ? await signThumbnailPaths(attachments)
+      : await signPaths(attachments.map((a) => a.path));
     return { urls };
   });

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { respondImageRequest } from "@/lib/image.functions";
 import { formatTime, initials, type MessageRow, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
+import { Bubble, ThumbImage, type Att } from "./shared";
 
 /**
  * FLOW 1 — NORMAL IMAGE (receiver-driven permission)
@@ -20,7 +20,7 @@ import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
  * RECEIVER —
  *   pending  → inline permission prompt (Accept / Reject). No image download.
  *   accepted → normal image bubble, joins conversation gallery.
- *   declined → "🚫 Image rejected" placeholder.
+ *   declined → same image bubble, thumbnail blurred with a rejected label.
  */
 export function NormalImageMessage({
   msg, me, peer, mine, thumbUrls, onOpen,
@@ -34,18 +34,6 @@ export function NormalImageMessage({
 }) {
   const attachments: Att[] = Array.isArray(msg.attachments) ? (msg.attachments as Att[]) : [];
   const status = msg.image_request_status ?? "accepted";
-
-  // Terminal: rejected / expired — keep the exact image container, blur it heavily.
-  if (status === "declined" || status === "expired") {
-    return (
-      <RejectedImageGrid
-        mine={mine}
-        attachments={attachments}
-        thumbUrls={thumbUrls}
-        createdAt={msg.created_at}
-      />
-    );
-  }
 
   // Receiver + pending → permission prompt only.
   if (!mine && status === "pending") {
@@ -82,6 +70,7 @@ function ImageGrid({
   const cols = count === 1 ? 1 : 2;
   const shown = attachments.slice(0, 4);
   const extra = count - shown.length;
+  const rejected = status === "declined" || status === "expired";
 
   // Sender status label (receiver-accepted side just shows time).
   let statusNode: React.ReactNode = null;
@@ -116,7 +105,8 @@ function ImageGrid({
               <button
                 key={a.path}
                 type="button"
-                onClick={() => onOpen(msg.id, i)}
+                onClick={() => { if (!rejected) onOpen(msg.id, i); }}
+                aria-disabled={rejected}
                 style={aspect ? { aspectRatio: aspect } : undefined}
                 className={cn(
                   "relative overflow-hidden group",
@@ -128,12 +118,22 @@ function ImageGrid({
                   <ThumbImage
                     src={thumbUrls[i]}
                     className="size-full"
-                    imgClassName="transition-transform duration-200 group-hover:scale-[1.02]"
+                    imgClassName={cn(
+                      rejected
+                        ? "scale-125 blur-[28px] saturate-[1.1]"
+                        : "group-hover:scale-[1.02]",
+                    )}
                   />
                 ) : (
                   <div className="size-full nova-shimmer flex items-center justify-center">
                     <ImageIcon className="size-8 text-muted-foreground/40" />
                   </div>
+                )}
+                {rejected && (
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-black/35 transition-opacity duration-300"
+                  />
                 )}
                 {i === 3 && extra > 0 && (
                   <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
@@ -149,8 +149,12 @@ function ImageGrid({
           "flex items-center gap-2 px-2 pb-1 pt-0.5 text-[10px]",
           mine ? "text-bubble-me-foreground/70" : "text-muted-foreground",
         )}>
-          <span>{formatTime(msg.created_at)}</span>
-          {statusNode && <span className="ml-auto">{statusNode}</span>}
+          {rejected ? (
+            <span className="text-destructive/90 font-medium">❌ Image Rejected</span>
+          ) : (
+            <span>{formatTime(msg.created_at)}</span>
+          )}
+          {rejected ? <span className="ml-auto">{formatTime(msg.created_at)}</span> : statusNode && <span className="ml-auto">{statusNode}</span>}
         </div>
       </div>
     </Bubble>

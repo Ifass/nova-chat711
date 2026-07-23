@@ -82,7 +82,8 @@ export function ChatView({
   const [normalOpenKey, setNormalOpenKey] = useState<string | null>(null);
   const [previewOnce, setPreviewOnce] = useState<{ msgId: string; urls: string[] } | null>(null);
   const [thumbCache, setThumbCache] = useState<Record<string, string[]>>({});
-  const urlPromises = useRef<Map<string, Promise<string[]>>>(new Map());
+  const thumbPromises = useRef<Map<string, Promise<string[]>>>(new Map());
+  const fullUrlPromises = useRef<Map<string, Promise<string[]>>>(new Map());
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<PreparedImage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -221,21 +222,21 @@ export function ChatView({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, peerTyping, reactions]);
 
-  // Preload thumbnail URLs for image messages the user can view.
+  // Preload thumbnail URLs for image messages the user can view or has rejected.
   useEffect(() => {
     for (const m of messages) {
       if (m.message_type !== "image_request") continue;
       const mineMsg = m.sender_id === me.id;
       const status = m.image_request_status ?? "pending";
-      if (!(mineMsg || status === "accepted")) continue;
-      if (thumbCache[m.id] || urlPromises.current.has(m.id)) continue;
-      const p = getImageUrlsFn({ data: { messageId: m.id } })
+      if (!(mineMsg || status === "accepted" || status === "declined" || status === "expired")) continue;
+      if (thumbCache[m.id] || thumbPromises.current.has(m.id)) continue;
+      const p = getImageUrlsFn({ data: { messageId: m.id, purpose: "thumbnail" } })
         .then((r) => {
           setThumbCache((c) => ({ ...c, [m.id]: r.urls }));
           return r.urls;
         })
-        .catch((e) => { urlPromises.current.delete(m.id); throw e; });
-      urlPromises.current.set(m.id, p);
+        .catch((e) => { thumbPromises.current.delete(m.id); throw e; });
+      thumbPromises.current.set(m.id, p);
       p.catch(() => {}); // swallow; grid will just show placeholder
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,18 +401,25 @@ export function ChatView({
     }
     const messageId = crypto.randomUUID();
     console.log("[SEND] begin, messageId=", messageId, "mode=", mode, "count=", items.length);
-    const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
+    const uploaded: { path: string; thumbPath?: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
       for (let i = 0; i < items.length; i++) {
         const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        const thumbPath = im.thumbnailFile ? `${me.id}/${messageId}/thumbs/${crypto.randomUUID()}.jpg` : undefined;
         console.log("[SEND] uploading", i + 1, "/", items.length, path);
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
+        if (thumbPath && im.thumbnailFile) {
+          const { error: thumbError } = await supabase.storage.from("chat-images").upload(thumbPath, im.thumbnailFile, {
+            contentType: im.thumbnailFile.type, upsert: false, cacheControl: "86400",
+          });
+          if (thumbError) throw new Error(thumbError.message);
+        }
         console.log("[SEND] upload OK", path);
-        uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
+        uploaded.push({ path, thumbPath, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       console.log("[SEND] calling sendImageFn (DB insert)…");
@@ -444,7 +452,7 @@ export function ChatView({
       console.error("[SEND] failed", e);
       toast.error(e instanceof Error ? e.message : "Upload failed");
       if (uploaded.length) {
-        await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
+        await supabase.storage.from("chat-images").remove(uploaded.flatMap((u) => u.thumbPath ? [u.path, u.thumbPath] : [u.path]));
       }
     } finally {
       setUploading(false);
@@ -585,18 +593,14 @@ export function ChatView({
   const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
 
   const resolveNormalUrls = async (msgId: string): Promise<string[]> => {
-    const cached = thumbCache[msgId];
-    if (cached) return cached;
-    let p = urlPromises.current.get(msgId);
+    let p = fullUrlPromises.current.get(msgId);
     if (!p) {
       p = getImageUrlsFn({ data: { messageId: msgId } })
         .then((r) => r.urls)
-        .catch((e) => { urlPromises.current.delete(msgId); throw e; });
-      urlPromises.current.set(msgId, p);
+        .catch((e) => { fullUrlPromises.current.delete(msgId); throw e; });
+      fullUrlPromises.current.set(msgId, p);
     }
-    const urls = await p;
-    setThumbCache((c) => (c[msgId] ? c : { ...c, [msgId]: urls }));
-    return urls;
+    return p;
   };
 
   const openNormalGallery = (msgId: string, attIndex: number) => setNormalOpenKey(`${msgId}:${attIndex}`);

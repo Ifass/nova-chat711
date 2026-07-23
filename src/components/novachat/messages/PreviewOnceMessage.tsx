@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { respondImageRequest } from "@/lib/image.functions";
 import { formatTime, initials, type MessageRow, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
+import { Bubble, ThumbImage, type Att } from "./shared";
 
 /**
  * FLOW 3 — PREVIEW ONCE (receiver-driven)
@@ -18,7 +18,8 @@ import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
  * RECEIVER —
  *   pending  → permission prompt (Accept opens the isolated viewer, Reject destroys).
  *   accept   → viewer opens once; on close, message becomes terminal "Viewed".
- *   viewed / declined → terminal placeholder "This image is no longer available."
+ *   declined → same image bubble, thumbnail blurred with a rejected label.
+ *   viewed → terminal placeholder "This image is no longer available."
  */
 export function PreviewOnceMessage({
   msg, me, peer, mine, thumbUrls, onOpenIsolated,
@@ -34,25 +35,8 @@ export function PreviewOnceMessage({
   const status = msg.image_request_status ?? "pending";
   const attachments: Att[] = Array.isArray(msg.attachments) ? (msg.attachments as Att[]) : [];
 
-  // Rejected — keep the exact image container, apply heavy blur (Telegram-style).
-  if (status === "declined") {
-    return (
-      <RejectedImageGrid
-        mine={mine}
-        attachments={attachments}
-        thumbUrls={thumbUrls}
-        createdAt={msg.created_at}
-        badge={
-          <div className="px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] flex items-center gap-1 font-medium shadow">
-            <Eye className="size-3" /> Preview Once
-          </div>
-        }
-      />
-    );
-  }
-
-  // Terminal: previewed / expired — keep the informational card.
-  if (status === "previewed" || status === "expired") {
+  // Terminal: previewed — image was intentionally consumed and is unavailable.
+  if (status === "previewed") {
     return (
       <Bubble mine={mine}>
         <div className="p-3 min-w-[240px] max-w-[300px]">
@@ -81,18 +65,19 @@ export function PreviewOnceMessage({
   }
 
   // Receiver + pending → permission prompt.
-  if (!mine) {
+  if (!mine && status === "pending") {
     return <ReceiverPrompt msg={msg} peer={peer} onOpenIsolated={onOpenIsolated} />;
   }
 
-  // Sender view — normal-looking image bubble with Preview Once badge + status.
+  // Sender view, and rejected receiver view — same image bubble with visual state only.
   const count = attachments.length;
   const cols = count === 1 ? 1 : 2;
   const shown = attachments.slice(0, 4);
   const extra = count - shown.length;
+  const rejected = status === "declined" || status === "expired";
 
   const statusNode =
-    status === "accepted" ? (
+    rejected ? null : status === "accepted" ? (
       <span className="flex items-center gap-1 text-primary">
         <CheckCheck className="size-3" /> Accepted
       </span>
@@ -125,11 +110,21 @@ export function PreviewOnceMessage({
                   )}
                 >
                   {thumbUrls?.[i] ? (
-                    <ThumbImage src={thumbUrls[i]} className="size-full" />
+                    <ThumbImage
+                      src={thumbUrls[i]}
+                      className="size-full"
+                      imgClassName={rejected ? "scale-125 blur-[28px] saturate-[1.1]" : undefined}
+                    />
                   ) : (
                     <div className="size-full nova-shimmer flex items-center justify-center">
                       <ImageIcon className="size-8 text-muted-foreground/40" />
                     </div>
+                  )}
+                  {rejected && (
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 bg-black/35 transition-opacity duration-300"
+                    />
                   )}
                   {i === 3 && extra > 0 && (
                     <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
@@ -149,8 +144,12 @@ export function PreviewOnceMessage({
           "flex items-center gap-2 px-2 pb-1 pt-0.5 text-[10px]",
           mine ? "text-bubble-me-foreground/70" : "text-muted-foreground",
         )}>
-          <span>{formatTime(msg.created_at)}</span>
-          <span className="ml-auto">{statusNode}</span>
+          {rejected ? (
+            <span className="text-destructive/90 font-medium">❌ Image Rejected</span>
+          ) : (
+            <span>{formatTime(msg.created_at)}</span>
+          )}
+          {rejected ? <span className="ml-auto">{formatTime(msg.created_at)}</span> : <span className="ml-auto">{statusNode}</span>}
         </div>
       </div>
     </Bubble>
