@@ -33,7 +33,7 @@ async function signThumbnailPaths(attachments: Attachment[]) {
     .createSignedUrls(
       attachments.map((a) => a.path),
       SIGN_TTL,
-      { transform: { width: 480, resize: "contain", quality: 45 } },
+      { transform: { width: 480, resize: "contain", quality: 45 } } as never,
     );
   if (error) throw new Error(error.message);
   return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
