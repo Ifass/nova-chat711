@@ -28,15 +28,16 @@ async function signThumbnailPaths(attachments: Attachment[]) {
 
   // Legacy fallback: return a transformed, low-resolution signed URL instead
   // of exposing the original full-resolution path to rejected receivers.
-  const { data, error } = await supabaseAdmin.storage
-    .from("chat-images")
-    .createSignedUrls(
-      attachments.map((a) => a.path),
-      SIGN_TTL,
-      { transform: { width: 480, resize: "contain", quality: 45 } } as never,
-    );
+  const results = await Promise.all(
+    attachments.map((a) =>
+      supabaseAdmin.storage
+        .from("chat-images")
+        .createSignedUrl(a.path, SIGN_TTL, { transform: { width: 480, resize: "contain", quality: 45 } }),
+    ),
+  );
+  const error = results.find((r) => r.error)?.error;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
+  return results.map((r) => r.data?.signedUrl).filter((u): u is string => !!u);
 }
 
 /** Sender creates an image message. Files must already be uploaded under `${userId}/${messageId}/...`. */
