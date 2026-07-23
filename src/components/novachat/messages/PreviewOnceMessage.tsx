@@ -35,8 +35,8 @@ export function PreviewOnceMessage({
   const status = msg.image_request_status ?? "pending";
   const attachments: Att[] = Array.isArray(msg.attachments) ? (msg.attachments as Att[]) : [];
 
-  // Terminal: previewed / expired — keep the informational card.
-  if (status === "previewed" || status === "expired") {
+  // Terminal: previewed — image was intentionally consumed and is unavailable.
+  if (status === "previewed") {
     return (
       <Bubble mine={mine}>
         <div className="p-3 min-w-[240px] max-w-[300px]">
@@ -74,7 +74,7 @@ export function PreviewOnceMessage({
   const cols = count === 1 ? 1 : 2;
   const shown = attachments.slice(0, 4);
   const extra = count - shown.length;
-  const rejected = status === "declined";
+  const rejected = status === "declined" || status === "expired";
 
   const statusNode =
     rejected ? null : status === "accepted" ? (
