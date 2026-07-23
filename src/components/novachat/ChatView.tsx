@@ -445,7 +445,12 @@ export function ChatView({
       if (m.message_type !== "image_request") continue;
       const mode = m.image_mode ?? "normal";
       if (mode === "preview_once") continue;
-      if (mode === "request" && m.image_request_status !== "accepted") continue;
+      const status = m.image_request_status ?? "accepted";
+      const mineMsg = m.sender_id === me.id;
+      // Sender always sees their own; receiver only after acceptance.
+      if (!mineMsg && status !== "accepted") continue;
+      // Never surface declined/expired in the gallery.
+      if (status === "declined" || status === "expired") continue;
       const atts = Array.isArray(m.attachments) ? m.attachments : [];
       for (let i = 0; i < atts.length; i++) {
         items.push({
