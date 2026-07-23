@@ -67,9 +67,9 @@ export function ChatView({
   const getImageUrlsFn = useServerFn(getImageUrls);
   const [peerTyping, setPeerTyping] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  // Chat gallery viewer state
-  const [openKey, setOpenKey] = useState<string | null>(null);
-  const [previewCache, setPreviewCache] = useState<Record<string, string[]>>({});
+  // Two INDEPENDENT viewers — normal gallery and preview-once — never share state.
+  const [normalOpenKey, setNormalOpenKey] = useState<string | null>(null);
+  const [previewOnce, setPreviewOnce] = useState<{ msgId: string; urls: string[] } | null>(null);
   const [thumbCache, setThumbCache] = useState<Record<string, string[]>>({});
   const urlPromises = useRef<Map<string, Promise<string[]>>>(new Map());
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -269,7 +269,7 @@ export function ChatView({
     for (const item of placeholders) processItem(item);
   };
 
-  const sendImages = async (caption: string, mode: "normal" | "preview_once" = "normal") => {
+  const sendImages = async (caption: string, mode: "normal" | "request" | "preview_once" = "normal") => {
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
