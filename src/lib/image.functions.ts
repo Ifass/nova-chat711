@@ -38,8 +38,11 @@ export const sendImageRequest = createServerFn({ method: "POST" })
     }
     const now = new Date();
     const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const mode = data.mode ?? "normal";
-    const needsAction = mode === "preview_once" || mode === "request";
+    // Simplified permission flow: ALL images require receiver acceptance.
+    // "request" is a legacy alias — treat as "normal".
+    const rawMode = data.mode ?? "normal";
+    const mode = rawMode === "request" ? "normal" : rawMode;
+    const needsAction = true;
     const { error } = await supabase.from("messages").insert({
       id: data.messageId,
       sender_id: userId,
