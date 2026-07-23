@@ -1,5 +1,56 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/novachat-types";
+
+/**
+ * ThumbImage — image with a pre-reserved container and a premium shimmer
+ * skeleton that fades into the loaded image. The wrapper never changes size:
+ * the aspect ratio is computed from attachment metadata up-front so the final
+ * layout is reserved before any bytes arrive. On load, the img fades in over
+ * the shimmer.
+ */
+export function ThumbImage({
+  src,
+  className,
+  imgClassName,
+  alt = "",
+}: {
+  src?: string;
+  className?: string;
+  imgClassName?: string;
+  alt?: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className={cn("relative overflow-hidden", className)}>
+      {/* Shimmer skeleton — sits behind the image, fades out on load */}
+      <div
+        aria-hidden
+        className={cn(
+          "absolute inset-0 nova-shimmer transition-opacity duration-300",
+          loaded ? "opacity-0" : "opacity-100",
+        )}
+      />
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+          className={cn(
+            "size-full object-cover transition-opacity duration-300",
+            loaded ? "opacity-100" : "opacity-0",
+            imgClassName,
+          )}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 
 export function Bubble({ mine, children }: { mine: boolean; children: React.ReactNode }) {
   return (
