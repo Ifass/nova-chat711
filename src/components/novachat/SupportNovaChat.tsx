@@ -253,7 +253,7 @@ export function SupportNovaChat() {
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute top-2 right-2 size-5 rounded-full bg-primary text-primary-foreground grid place-items-center text-[10px] font-bold"
+                    className="absolute top-2 right-2 size-5 rounded-full bg-blue-600 text-white grid place-items-center text-[10px] font-bold dark:bg-blue-500"
                   >
                     ✓
                   </span>
