@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus, X, Pin, Copy, Reply } from "lucide-react";
+import { SelectableMsg } from "@/components/novachat/SelectableMsg";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
 import { sendImageRequest } from "@/lib/image.functions";
