@@ -115,6 +115,51 @@ export type Database = {
         }
         Relationships: []
       }
+      donations: {
+        Row: {
+          amount_inr: number
+          anonymous: boolean
+          created_at: string
+          currency: string
+          id: string
+          message: string | null
+          order_id: string
+          payment_id: string | null
+          payment_status: string
+          support_item: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_inr: number
+          anonymous?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          order_id: string
+          payment_id?: string | null
+          payment_status?: string
+          support_item: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_inr?: number
+          anonymous?: boolean
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          order_id?: string
+          payment_id?: string | null
+          payment_status?: string
+          support_item?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       email_otps: {
         Row: {
           attempts: number
