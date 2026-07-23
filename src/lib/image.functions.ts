@@ -119,11 +119,17 @@ export const respondImageRequest = createServerFn({ method: "POST" })
     return { status: "previewed" as const, urls };
   });
 
-/** Get signed URLs for a message the caller already has access to (sender always; receiver only if accepted). */
+/**
+ * Get signed image URLs for a message.
+ * Full-size viewing remains sender-only or receiver-after-accept.
+ * Thumbnail use is also allowed after decline so the rejected bubble can keep
+ * the original image element and render the existing thumbnail blurred.
+ */
 export const getImageUrls = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { messageId: string }) => {
+  .inputValidator((d: { messageId: string; purpose?: "full" | "thumbnail" }) => {
     if (!d?.messageId) throw new Error("messageId required");
+    if (d.purpose && !["full", "thumbnail"].includes(d.purpose)) throw new Error("Invalid purpose");
     return d;
   })
   .handler(async ({ data, context }) => {
@@ -138,7 +144,12 @@ export const getImageUrls = createServerFn({ method: "POST" })
     const isSender = msg.sender_id === userId;
     const isReceiver = msg.receiver_id === userId;
     if (!isSender && !isReceiver) throw new Error("Forbidden");
-    if (!isSender && msg.image_request_status !== "accepted") throw new Error("Not accepted");
+    const status = msg.image_request_status ?? "pending";
+    const purpose = data.purpose ?? "full";
+    const canViewFull = isSender || (isReceiver && status === "accepted");
+    const canViewThumbnail = isSender || (isReceiver && (status === "accepted" || status === "declined"));
+    if (purpose === "full" && !canViewFull) throw new Error("Not accepted");
+    if (purpose === "thumbnail" && !canViewThumbnail) throw new Error("Thumbnail unavailable");
     const urls = await signPaths(((msg.attachments as unknown) as Attachment[]).map((a) => a.path));
     return { urls };
   });

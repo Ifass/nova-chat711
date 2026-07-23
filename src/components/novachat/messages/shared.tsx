@@ -41,7 +41,7 @@ export function ThumbImage({
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(true)}
           className={cn(
-            "size-full object-cover transition-opacity duration-300",
+            "size-full object-cover transition-[opacity,filter,transform] duration-300",
             loaded ? "opacity-100" : "opacity-0",
             imgClassName,
           )}
