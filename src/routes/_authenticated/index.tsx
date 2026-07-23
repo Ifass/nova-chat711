@@ -17,6 +17,7 @@ import { ProfileTab } from "@/components/novachat/ProfileTab";
 import { ChatView } from "@/components/novachat/ChatView";
 import { IncomingCallListener } from "@/components/novachat/IncomingCallListener";
 import { NovaLogo } from "@/components/NovaLogo";
+import { SupportNovaChat } from "@/components/novachat/SupportNovaChat";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -125,7 +126,7 @@ function AppShell() {
           </Button>
         </header>
 
-        <div className="flex-1 overflow-hidden pb-24 md:pb-0">
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
           {tab === "chats" && (
             <ChatsTab me={profile} online={online} activePeerId={activePeer?.id} onOpen={openChat} />
           )}
@@ -267,6 +268,8 @@ function AISidePanel({
       <p className="text-xs text-muted-foreground mt-2 px-1">
         Your personal AI assistants. Chats are private to your account.
       </p>
+
+      <SupportNovaChat />
     </div>
   );
 }
