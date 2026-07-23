@@ -210,7 +210,7 @@ export function SupportNovaChat() {
             id="support-nova-heading"
             className="text-lg md:text-xl font-semibold flex items-center gap-2"
           >
-            <span aria-hidden>❤️</span> Support Nova Chat
+            <span aria-hidden>❤️</span> Support us
           </h2>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
             Love Nova Chat? Every contribution helps cover AI costs, servers,
@@ -236,10 +236,11 @@ export function SupportNovaChat() {
                 className={cn(
                   "group relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-4 min-h-[104px]",
                   "bg-background/60 backdrop-blur-sm transition-all duration-200",
-                  "hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                  "hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+                  "hover:shadow-[0_0_0_1px_theme(colors.blue.500/15),0_6px_20px_-6px_theme(colors.blue.500/15)]",
                   active
-                    ? "border-primary/60 shadow-[0_0_0_3px_hsl(var(--primary)/0.15),0_8px_28px_-8px_hsl(var(--primary)/0.5)]"
-                    : "border-border/60 hover:border-border shadow-sm",
+                    ? "border-blue-500/60 shadow-[0_0_0_2px_theme(colors.blue.500/20),0_8px_24px_-8px_theme(colors.blue.500/20)]"
+                    : "border-border/60 hover:border-blue-400/40 shadow-sm",
                 )}
               >
                 <span className="text-3xl leading-none" aria-hidden>
@@ -252,7 +253,7 @@ export function SupportNovaChat() {
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute top-2 right-2 size-5 rounded-full bg-primary text-primary-foreground grid place-items-center text-[10px] font-bold"
+                    className="absolute top-2 right-2 size-5 rounded-full bg-blue-600 text-white grid place-items-center text-[10px] font-bold dark:bg-blue-500"
                   >
                     ✓
                   </span>
@@ -328,7 +329,7 @@ export function SupportNovaChat() {
           onClick={attempt}
           disabled={!canSubmit}
           size="lg"
-          className="mt-5 w-full h-12 text-base font-semibold gap-2"
+          className="mt-5 w-full h-12 text-base font-semibold gap-2 bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-[0_4px_14px_-4px_theme(colors.blue.600/40)] hover:shadow-[0_6px_20px_-6px_theme(colors.blue.600/50)]"
         >
           {loading ? (
             <>
@@ -338,7 +339,7 @@ export function SupportNovaChat() {
           ) : (
             <>
               <Heart className="size-4 fill-current" />
-              Support Nova Chat
+              Support us
               {selectedItem && amountValid ? ` · ₹${effectiveAmount}` : ""}
             </>
           )}
