@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus, X, Pin, Copy, Reply } from "lucide-react";
+import { SelectableMsg } from "@/components/novachat/SelectableMsg";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
 import { sendImageRequest } from "@/lib/image.functions";
@@ -48,6 +49,16 @@ function fmtDuration(s: number) {
   return `${m}m ${sec.toString().padStart(2, "0")}s`;
 }
 
+function previewOf(m: MessageRow): string {
+  if (m.message_type === "image_request") {
+    const n = Array.isArray(m.attachments) ? m.attachments.length : 1;
+    return m.caption ? `📷 ${m.caption}` : `📷 Photo${n > 1 ? ` (${n})` : ""}`;
+  }
+  const call = parseCallLog(m.content);
+  if (call) return "📞 Voice call";
+  return m.content || "";
+}
+
 
 export function ChatView({
   me, peer, online, onBack,
@@ -84,6 +95,32 @@ export function ChatView({
   const broadcastRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const conversationKey = [me.id, peer.id].sort().join(":");
+
+  // ---------- Selection mode (WhatsApp-style) ----------
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectionMode = selected.size > 0;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  const pinnedKey = `nc:pinned:${conversationKey}`;
+  const [pinned, setPinned] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(`nc:pinned:${[me.id, peer.id].sort().join(":")}`);
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(pinnedKey, JSON.stringify(Array.from(pinned))); } catch { /* ignore */ }
+  }, [pinned, pinnedKey]);
+
+  const enterSelect = (id: string) => setSelected((s) => (s.has(id) ? s : new Set(s).add(id)));
+  const toggleSelect = (id: string) => setSelected((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const clearSelection = () => setSelected(new Set());
+
 
   useEffect(() => {
     let cancelled = false;
@@ -220,14 +257,94 @@ export function ChatView({
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    const content = input.trim();
-    if (!content || sending) return;
+    const raw = input.trim();
+    if (!raw || sending) return;
     setSending(true);
     setInput("");
+    let content = raw;
+    if (replyTo) {
+      const who = replyTo.sender_id === me.id ? "You" : peer.display_name;
+      const preview = previewOf(replyTo).slice(0, 140);
+      content = `> ${who}: ${preview}\n${raw}`;
+      setReplyTo(null);
+    }
     const { error } = await supabase.from("messages").insert({ sender_id: me.id, receiver_id: peer.id, content });
     setSending(false);
-    if (error) { toast.error(error.message); setInput(content); }
+    if (error) { toast.error(error.message); setInput(raw); }
   };
+
+  // ---------- Selection actions ----------
+  const selectedMsgs = useMemo(
+    () => messages.filter((m) => selected.has(m.id)),
+    [messages, selected],
+  );
+  const allSelectedText = selectedMsgs.length > 0 && selectedMsgs.every((m) => !m.message_type || m.message_type === "text");
+  const canReply = selected.size === 1;
+  const allSelectedPinned = selectedMsgs.length > 0 && selectedMsgs.every((m) => pinned.has(m.id));
+
+  const doCopy = async () => {
+    const text = selectedMsgs.map((m) => m.content).join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(selectedMsgs.length === 1 ? "Copied" : `Copied ${selectedMsgs.length} messages`);
+    } catch {
+      toast.error("Copy failed");
+    }
+    clearSelection();
+  };
+
+  const doPin = () => {
+    setPinned((prev) => {
+      const n = new Set(prev);
+      if (allSelectedPinned) selectedMsgs.forEach((m) => n.delete(m.id));
+      else selectedMsgs.forEach((m) => n.add(m.id));
+      return n;
+    });
+    toast.success(allSelectedPinned ? "Unpinned" : "Pinned");
+    clearSelection();
+  };
+
+  const doReply = () => {
+    const m = selectedMsgs[0];
+    if (!m) return;
+    setReplyTo(m);
+    clearSelection();
+    inputRef.current?.focus();
+  };
+
+  const doDelete = async () => {
+    const ids = Array.from(selected);
+    setConfirmDelete(false);
+    // Optimistic remove for snappy UX
+    setMessages((prev) => prev.filter((m) => !selected.has(m.id)));
+    // Also drop local pins
+    setPinned((prev) => {
+      const n = new Set(prev);
+      ids.forEach((id) => n.delete(id));
+      return n;
+    });
+    clearSelection();
+    const { error } = await supabase.from("messages").delete().in("id", ids);
+    if (error) toast.error(error.message);
+    else toast.success(ids.length === 1 ? "Deleted" : `Deleted ${ids.length} messages`);
+  };
+
+  // ---------- Keyboard shortcuts ----------
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectionMode) {
+        clearSelection();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectionMode) {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        setConfirmDelete(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectionMode]);
+
 
   // Track per-image background processing so Send can await pending compression.
   const processingRef = useRef<Map<string, Promise<void>>>(new Map());
@@ -507,6 +624,38 @@ export function ChatView({
 
   return (
     <div className="flex flex-col h-full">
+      {selectionMode ? (
+        <header className="h-16 px-3 sm:px-4 flex items-center gap-2 border-b border-border bg-primary/5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <Button variant="ghost" size="icon" onClick={clearSelection} aria-label="Cancel selection">
+            <X className="size-5" />
+          </Button>
+          <div className="flex-1 min-w-0 font-semibold">
+            {selected.size} Selected
+          </div>
+          <Button
+            variant="ghost" size="icon" aria-label={allSelectedPinned ? "Unpin" : "Pin"}
+            onClick={doPin} title={allSelectedPinned ? "Unpin" : "Pin"}
+          >
+            <Pin className={cn("size-5", allSelectedPinned && "fill-current text-primary")} />
+          </Button>
+          {allSelectedText && (
+            <Button variant="ghost" size="icon" aria-label="Copy" onClick={doCopy} title="Copy">
+              <Copy className="size-5" />
+            </Button>
+          )}
+          {canReply && (
+            <Button variant="ghost" size="icon" aria-label="Reply" onClick={doReply} title="Reply">
+              <Reply className="size-5" />
+            </Button>
+          )}
+          <Button
+            variant="ghost" size="icon" aria-label="Delete" onClick={() => setConfirmDelete(true)}
+            className="text-destructive hover:text-destructive" title="Delete"
+          >
+            <Trash2 className="size-5" />
+          </Button>
+        </header>
+      ) : (
       <header className="h-16 px-3 sm:px-4 flex items-center gap-3 border-b border-border bg-card">
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to conversations">
           <ArrowLeft className="size-5" />
@@ -551,6 +700,8 @@ export function ChatView({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+      )}
+
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto chat-pattern p-3 sm:p-4">
         <div className="max-w-3xl mx-auto space-y-1.5">
@@ -562,18 +713,28 @@ export function ChatView({
 
             if (m.message_type === "image_request") {
               return (
-                <ImageMessage
+                <SelectableMsg
                   key={m.id}
-                  msg={m}
-                  me={me}
-                  peer={peer}
-                  mine={mine}
-                  thumbUrls={thumbCache[m.id]}
-                  onOpen={openNormalGallery}
-                  onOpenPreviewOnce={openPreviewOnce}
-                />
+                  msgId={m.id}
+                  selected={selected.has(m.id)}
+                  selectionMode={selectionMode}
+                  pinned={pinned.has(m.id)}
+                  onEnter={enterSelect}
+                  onToggle={toggleSelect}
+                >
+                  <ImageMessage
+                    msg={m}
+                    me={me}
+                    peer={peer}
+                    mine={mine}
+                    thumbUrls={thumbCache[m.id]}
+                    onOpen={openNormalGallery}
+                    onOpenPreviewOnce={openPreviewOnce}
+                  />
+                </SelectableMsg>
               );
             }
+
 
 
 
@@ -610,81 +771,119 @@ export function ChatView({
                 } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
               };
               return (
-                <div key={m.id} className="flex justify-center my-2">
-                  <div className="flex items-center gap-2 bg-card/80 border border-border rounded-full pl-3 pr-1 py-1 shadow-sm text-xs">
-                    <Icon className={cn("size-4", tone)} />
-                    <span className={cn("font-medium", missed && !iAmCaller && "text-destructive")}>{label}</span>
-                    <span className="text-muted-foreground">· {formatTime(m.created_at)}</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button aria-label="Call log options" className="p-1 rounded-full hover:bg-muted text-muted-foreground">
-                          <MoreVertical className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={callBack}>
-                          <Phone className="size-4 mr-2" /> Call back
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
-                          <Trash2 className="size-4 mr-2" /> Delete log
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                <SelectableMsg
+                  key={m.id}
+                  msgId={m.id}
+                  selected={selected.has(m.id)}
+                  selectionMode={selectionMode}
+                  pinned={pinned.has(m.id)}
+                  onEnter={enterSelect}
+                  onToggle={toggleSelect}
+                >
+                  <div className="flex justify-center my-2">
+                    <div className="flex items-center gap-2 bg-card/80 border border-border rounded-full pl-3 pr-1 py-1 shadow-sm text-xs">
+                      <Icon className={cn("size-4", tone)} />
+                      <span className={cn("font-medium", missed && !iAmCaller && "text-destructive")}>{label}</span>
+                      <span className="text-muted-foreground">· {formatTime(m.created_at)}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button aria-label="Call log options" className="p-1 rounded-full hover:bg-muted text-muted-foreground">
+                            <MoreVertical className="size-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={callBack}>
+                            <Phone className="size-4 mr-2" /> Call back
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
+                            <Trash2 className="size-4 mr-2" /> Delete log
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
+                </SelectableMsg>
               );
             }
 
+
+            // Parse leading "> Name: quote\n" as a quoted reply preview.
+            let quote: string | null = null;
+            let body = m.content;
+            const qMatch = /^> ([^\n]{1,200})\n([\s\S]*)$/.exec(m.content);
+            if (qMatch) { quote = qMatch[1]; body = qMatch[2]; }
+
             return (
-              <div key={m.id} className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
-                <div className="flex flex-col items-stretch max-w-[80%] sm:max-w-[65%]">
-                  <div className={`flex items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
-                    <div className={`px-3 py-2 text-sm shadow-sm ${
-                      mine
-                        ? `bg-bubble-me text-bubble-me-foreground rounded-2xl ${tail ? "rounded-br-md" : ""}`
-                        : `bg-bubble-other text-bubble-other-foreground rounded-2xl ${tail ? "rounded-bl-md" : ""}`
-                    }`}>
-                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                      <div className={`flex items-center gap-1 justify-end mt-0.5 text-[10px] ${mine ? "text-bubble-me-foreground/70" : "text-muted-foreground"}`}>
-                        <span>{formatTime(m.created_at)}</span>
-                        {mine && (m.read_at ? <CheckCheck className="size-3 text-primary" /> : <Check className="size-3" />)}
-                      </div>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button aria-label="React" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground">
-                          <Smile className="size-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-1" side="top">
-                        <div className="flex gap-1">
-                          {REACTION_EMOJIS.map((e) => (
-                            <button key={e} onClick={() => toggleReaction(m.id, e)} className="text-xl hover:scale-125 transition-transform p-1">
-                              {e}
-                            </button>
-                          ))}
+              <SelectableMsg
+                key={m.id}
+                msgId={m.id}
+                selected={selected.has(m.id)}
+                selectionMode={selectionMode}
+                pinned={pinned.has(m.id)}
+                onEnter={enterSelect}
+                onToggle={toggleSelect}
+              >
+                <div className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
+                  <div className="flex flex-col items-stretch max-w-[80%] sm:max-w-[65%]">
+                    <div className={`flex items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                      <div className={`px-3 py-2 text-sm shadow-sm ${
+                        mine
+                          ? `bg-bubble-me text-bubble-me-foreground rounded-2xl ${tail ? "rounded-br-md" : ""}`
+                          : `bg-bubble-other text-bubble-other-foreground rounded-2xl ${tail ? "rounded-bl-md" : ""}`
+                      }`}>
+                        {quote && (
+                          <div className={cn(
+                            "mb-1.5 pl-2 border-l-2 rounded-sm text-xs opacity-80 line-clamp-2",
+                            mine ? "border-bubble-me-foreground/60" : "border-primary",
+                          )}>
+                            {quote}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap break-words">{body}</div>
+                        <div className={`flex items-center gap-1 justify-end mt-0.5 text-[10px] ${mine ? "text-bubble-me-foreground/70" : "text-muted-foreground"}`}>
+                          <span>{formatTime(m.created_at)}</span>
+                          {mine && (m.read_at ? <CheckCheck className="size-3 text-primary" /> : <Check className="size-3" />)}
                         </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  {rx && rx.size > 0 && (
-                    <div className={`flex gap-1 mt-1 flex-wrap ${mine ? "justify-end" : "justify-start"}`}>
-                      {Array.from(rx.entries()).map(([emoji, info]) => (
-                        <button
-                          key={emoji}
-                          onClick={() => toggleReaction(m.id, emoji)}
-                          className={`text-xs px-1.5 py-0.5 rounded-full border ${
-                            info.mine ? "bg-primary/15 border-primary/40" : "bg-card border-border"
-                          }`}
-                        >
-                          {emoji} {info.count}
-                        </button>
-                      ))}
+                      </div>
+                      {!selectionMode && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button aria-label="React" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground">
+                              <Smile className="size-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-1" side="top">
+                            <div className="flex gap-1">
+                              {REACTION_EMOJIS.map((e) => (
+                                <button key={e} onClick={() => toggleReaction(m.id, e)} className="text-xl hover:scale-125 transition-transform p-1">
+                                  {e}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
-                  )}
+                    {rx && rx.size > 0 && (
+                      <div className={`flex gap-1 mt-1 flex-wrap ${mine ? "justify-end" : "justify-start"}`}>
+                        {Array.from(rx.entries()).map(([emoji, info]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(m.id, emoji)}
+                            className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                              info.mine ? "bg-primary/15 border-primary/40" : "bg-card border-border"
+                            }`}
+                          >
+                            {emoji} {info.count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </SelectableMsg>
             );
+
           })}
           {peerTyping && (
             <div className="flex justify-start">
@@ -705,12 +904,27 @@ export function ChatView({
 
       <form
         onSubmit={send}
-        className="p-3 border-t border-border bg-card"
+        className="border-t border-border bg-card"
         onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
         onDrop={(e) => {
           if (e.dataTransfer.files?.length) { e.preventDefault(); addFiles(e.dataTransfer.files); }
         }}
       >
+        {replyTo && (
+          <div className="max-w-3xl mx-auto flex items-center gap-2 px-3 pt-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <div className="flex-1 min-w-0 pl-3 border-l-2 border-primary bg-muted/40 rounded-r-md py-1.5 pr-2">
+              <div className="text-[11px] font-semibold text-primary">
+                Replying to {replyTo.sender_id === me.id ? "yourself" : peer.display_name}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{previewOf(replyTo)}</div>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={() => setReplyTo(null)} aria-label="Cancel reply">
+              <X className="size-4" />
+            </Button>
+          </div>
+        )}
+        <div className="p-3">
+
         <div className="max-w-3xl mx-auto flex gap-2 items-center">
           <input
             ref={fileInputRef} type="file" accept={ACCEPTED_TYPES.join(",")} multiple className="hidden"
@@ -745,7 +959,9 @@ export function ChatView({
             <Send className="size-4" />
           </Button>
         </div>
+        </div>
       </form>
+
 
       <ImagePreviewModal
         open={pickerOpen}
@@ -773,6 +989,25 @@ export function ChatView({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={clearHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selected.size} message{selected.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the selected message{selected.size === 1 ? "" : "s"} for everyone. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={doDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
