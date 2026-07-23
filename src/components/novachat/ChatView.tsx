@@ -247,14 +247,94 @@ export function ChatView({
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    const content = input.trim();
-    if (!content || sending) return;
+    const raw = input.trim();
+    if (!raw || sending) return;
     setSending(true);
     setInput("");
+    let content = raw;
+    if (replyTo) {
+      const who = replyTo.sender_id === me.id ? "You" : peer.display_name;
+      const preview = previewOf(replyTo).slice(0, 140);
+      content = `> ${who}: ${preview}\n${raw}`;
+      setReplyTo(null);
+    }
     const { error } = await supabase.from("messages").insert({ sender_id: me.id, receiver_id: peer.id, content });
     setSending(false);
-    if (error) { toast.error(error.message); setInput(content); }
+    if (error) { toast.error(error.message); setInput(raw); }
   };
+
+  // ---------- Selection actions ----------
+  const selectedMsgs = useMemo(
+    () => messages.filter((m) => selected.has(m.id)),
+    [messages, selected],
+  );
+  const allSelectedText = selectedMsgs.length > 0 && selectedMsgs.every((m) => !m.message_type || m.message_type === "text");
+  const canReply = selected.size === 1;
+  const allSelectedPinned = selectedMsgs.length > 0 && selectedMsgs.every((m) => pinned.has(m.id));
+
+  const doCopy = async () => {
+    const text = selectedMsgs.map((m) => m.content).join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(selectedMsgs.length === 1 ? "Copied" : `Copied ${selectedMsgs.length} messages`);
+    } catch {
+      toast.error("Copy failed");
+    }
+    clearSelection();
+  };
+
+  const doPin = () => {
+    setPinned((prev) => {
+      const n = new Set(prev);
+      if (allSelectedPinned) selectedMsgs.forEach((m) => n.delete(m.id));
+      else selectedMsgs.forEach((m) => n.add(m.id));
+      return n;
+    });
+    toast.success(allSelectedPinned ? "Unpinned" : "Pinned");
+    clearSelection();
+  };
+
+  const doReply = () => {
+    const m = selectedMsgs[0];
+    if (!m) return;
+    setReplyTo(m);
+    clearSelection();
+    inputRef.current?.focus();
+  };
+
+  const doDelete = async () => {
+    const ids = Array.from(selected);
+    setConfirmDelete(false);
+    // Optimistic remove for snappy UX
+    setMessages((prev) => prev.filter((m) => !selected.has(m.id)));
+    // Also drop local pins
+    setPinned((prev) => {
+      const n = new Set(prev);
+      ids.forEach((id) => n.delete(id));
+      return n;
+    });
+    clearSelection();
+    const { error } = await supabase.from("messages").delete().in("id", ids);
+    if (error) toast.error(error.message);
+    else toast.success(ids.length === 1 ? "Deleted" : `Deleted ${ids.length} messages`);
+  };
+
+  // ---------- Keyboard shortcuts ----------
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectionMode) {
+        clearSelection();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectionMode) {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        setConfirmDelete(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectionMode]);
+
 
   // Track per-image background processing so Send can await pending compression.
   const processingRef = useRef<Map<string, Promise<void>>>(new Map());
