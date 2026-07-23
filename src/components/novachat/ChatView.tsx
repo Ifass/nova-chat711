@@ -49,6 +49,16 @@ function fmtDuration(s: number) {
   return `${m}m ${sec.toString().padStart(2, "0")}s`;
 }
 
+function previewOf(m: MessageRow): string {
+  if (m.message_type === "image_request") {
+    const n = Array.isArray(m.attachments) ? m.attachments.length : 1;
+    return m.caption ? `📷 ${m.caption}` : `📷 Photo${n > 1 ? ` (${n})` : ""}`;
+  }
+  const call = parseCallLog(m.content);
+  if (call) return "📞 Voice call";
+  return m.content || "";
+}
+
 
 export function ChatView({
   me, peer, online, onBack,
