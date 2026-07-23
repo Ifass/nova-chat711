@@ -995,6 +995,25 @@ export function ChatView({
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selected.size} message{selected.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the selected message{selected.size === 1 ? "" : "s"} for everyone. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={doDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {dragActive && (
         <div className="fixed inset-0 z-[60] pointer-events-none backdrop-blur-sm bg-background/60 flex items-center justify-center">
           <div className="m-6 p-10 rounded-3xl border-2 border-dashed border-primary bg-card/90 shadow-2xl text-center">
