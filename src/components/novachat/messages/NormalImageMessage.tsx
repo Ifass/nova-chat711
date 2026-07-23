@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { respondImageRequest } from "@/lib/image.functions";
 import { formatTime, initials, type MessageRow, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { Bubble, RejectedImageGrid, type Att } from "./shared";
+import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
 
 /**
  * FLOW 1 — NORMAL IMAGE (receiver-driven permission)
@@ -105,36 +105,44 @@ function ImageGrid({
     <Bubble mine={mine}>
       <div className="p-1.5 max-w-[320px]">
         <div className={cn("grid gap-0.5 rounded-lg overflow-hidden", cols === 1 ? "grid-cols-1" : "grid-cols-2")}>
-          {shown.map((a, i) => (
-            <button
-              key={a.path}
-              type="button"
-              onClick={() => onOpen(msg.id, i)}
-              className={cn(
-                "relative bg-muted overflow-hidden group",
-                count === 1 ? "aspect-video" : "aspect-square",
-                count === 3 && i === 0 ? "row-span-2" : "",
-              )}
-            >
-              {thumbUrls?.[i] ? (
-                <img
-                  src={thumbUrls[i]}
-                  alt=""
-                  loading="lazy"
-                  className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                />
-              ) : (
-                <div className="size-full flex items-center justify-center">
-                  <ImageIcon className="size-8 text-muted-foreground/50" />
-                </div>
-              )}
-              {i === 3 && extra > 0 && (
-                <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
-                  +{extra}
-                </div>
-              )}
-            </button>
-          ))}
+          {shown.map((a, i) => {
+            const aspect =
+              count === 1
+                ? a.width && a.height
+                  ? `${a.width} / ${a.height}`
+                  : undefined
+                : undefined;
+            return (
+              <button
+                key={a.path}
+                type="button"
+                onClick={() => onOpen(msg.id, i)}
+                style={aspect ? { aspectRatio: aspect } : undefined}
+                className={cn(
+                  "relative overflow-hidden group",
+                  count === 1 ? (aspect ? "" : "aspect-video") : "aspect-square",
+                  count === 3 && i === 0 ? "row-span-2" : "",
+                )}
+              >
+                {thumbUrls?.[i] ? (
+                  <ThumbImage
+                    src={thumbUrls[i]}
+                    className="size-full"
+                    imgClassName="transition-transform duration-200 group-hover:scale-[1.02]"
+                  />
+                ) : (
+                  <div className="size-full nova-shimmer flex items-center justify-center">
+                    <ImageIcon className="size-8 text-muted-foreground/40" />
+                  </div>
+                )}
+                {i === 3 && extra > 0 && (
+                  <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
+                    +{extra}
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
         {msg.caption && <div className="px-2 py-1 text-sm">{msg.caption}</div>}
         <div className={cn(
