@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type Attachment = {
   path: string;
+  thumbPath?: string;
   size: number;
   width: number;
   height: number;
@@ -16,6 +17,24 @@ async function signPaths(paths: string[]) {
   const { data, error } = await supabaseAdmin.storage
     .from("chat-images")
     .createSignedUrls(paths, SIGN_TTL);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
+}
+
+async function signThumbnailPaths(attachments: Attachment[]) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const thumbPaths = attachments.map((a) => a.thumbPath).filter((p): p is string => !!p);
+  if (thumbPaths.length === attachments.length) return signPaths(thumbPaths);
+
+  // Legacy fallback: return a transformed, low-resolution signed URL instead
+  // of exposing the original full-resolution path to rejected receivers.
+  const { data, error } = await supabaseAdmin.storage
+    .from("chat-images")
+    .createSignedUrls(
+      attachments.map((a) => a.path),
+      SIGN_TTL,
+      { transform: { width: 480, resize: "contain", quality: 45 } },
+    );
   if (error) throw new Error(error.message);
   return (data ?? []).map((d) => d.signedUrl).filter((u): u is string => !!u);
 }
@@ -35,6 +54,7 @@ export const sendImageRequest = createServerFn({ method: "POST" })
     if (data.receiverId === userId) throw new Error("Can't send to yourself");
     for (const a of data.attachments) {
       if (!a.path.startsWith(`${userId}/${data.messageId}/`)) throw new Error("Invalid attachment path");
+      if (a.thumbPath && !a.thumbPath.startsWith(`${userId}/${data.messageId}/thumbs/`)) throw new Error("Invalid thumbnail path");
     }
     const now = new Date();
     const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -150,6 +170,9 @@ export const getImageUrls = createServerFn({ method: "POST" })
     const canViewThumbnail = isSender || (isReceiver && (status === "accepted" || status === "declined"));
     if (purpose === "full" && !canViewFull) throw new Error("Not accepted");
     if (purpose === "thumbnail" && !canViewThumbnail) throw new Error("Thumbnail unavailable");
-    const urls = await signPaths(((msg.attachments as unknown) as Attachment[]).map((a) => a.path));
+    const attachments = ((msg.attachments as unknown) as Attachment[]);
+    const urls = purpose === "thumbnail"
+      ? await signThumbnailPaths(attachments)
+      : await signPaths(attachments.map((a) => a.path));
     return { urls };
   });

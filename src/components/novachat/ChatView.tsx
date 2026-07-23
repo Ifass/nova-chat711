@@ -400,18 +400,25 @@ export function ChatView({
     }
     const messageId = crypto.randomUUID();
     console.log("[SEND] begin, messageId=", messageId, "mode=", mode, "count=", items.length);
-    const uploaded: { path: string; size: number; width: number; height: number; mime: string }[] = [];
+    const uploaded: { path: string; thumbPath?: string; size: number; width: number; height: number; mime: string }[] = [];
     try {
       for (let i = 0; i < items.length; i++) {
         const im = items[i];
         const path = `${me.id}/${messageId}/${crypto.randomUUID()}.${extForMime(im.mime)}`;
+        const thumbPath = im.thumbnailFile ? `${me.id}/${messageId}/thumbs/${crypto.randomUUID()}.jpg` : undefined;
         console.log("[SEND] uploading", i + 1, "/", items.length, path);
         const { error } = await supabase.storage.from("chat-images").upload(path, im.file, {
           contentType: im.mime, upsert: false, cacheControl: "3600",
         });
         if (error) throw new Error(error.message);
+        if (thumbPath && im.thumbnailFile) {
+          const { error: thumbError } = await supabase.storage.from("chat-images").upload(thumbPath, im.thumbnailFile, {
+            contentType: im.thumbnailFile.type, upsert: false, cacheControl: "86400",
+          });
+          if (thumbError) throw new Error(thumbError.message);
+        }
         console.log("[SEND] upload OK", path);
-        uploaded.push({ path, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
+        uploaded.push({ path, thumbPath, size: im.size, width: im.width || 0, height: im.height || 0, mime: im.mime });
         setUploadPct(Math.round(((i + 1) / items.length) * 100));
       }
       console.log("[SEND] calling sendImageFn (DB insert)…");
@@ -444,7 +451,7 @@ export function ChatView({
       console.error("[SEND] failed", e);
       toast.error(e instanceof Error ? e.message : "Upload failed");
       if (uploaded.length) {
-        await supabase.storage.from("chat-images").remove(uploaded.map((u) => u.path));
+        await supabase.storage.from("chat-images").remove(uploaded.flatMap((u) => u.thumbPath ? [u.path, u.thumbPath] : [u.path]));
       }
     } finally {
       setUploading(false);

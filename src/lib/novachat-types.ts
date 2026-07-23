@@ -7,7 +7,7 @@ export type ProfileLite = {
 };
 
 export type Attachment = {
-  path: string; size: number; width: number; height: number; mime: string;
+  path: string; thumbPath?: string; size: number; width: number; height: number; mime: string;
 };
 
 export type MessageRow = {

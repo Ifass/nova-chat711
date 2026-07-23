@@ -68,4 +68,4 @@ export function Bubble({ mine, children }: { mine: boolean; children: React.Reac
   );
 }
 
-export type Att = { path: string; size: number; width: number; height: number; mime: string };
+export type Att = { path: string; thumbPath?: string; size: number; width: number; height: number; mime: string };
