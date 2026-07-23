@@ -312,7 +312,7 @@ export function ChatView({
         message_type: "image_request",
         attachments: uploaded as unknown as MessageRow["attachments"],
         image_mode: mode,
-        image_request_status: mode === "preview_once" ? "pending" : "accepted",
+        image_request_status: mode === "normal" ? "accepted" : "pending",
         expires_at: null,
       } as MessageRow;
       setMessages((prev) => {
@@ -437,7 +437,7 @@ export function ChatView({
   // ---------- FLOW 1: Normal conversation gallery (independent) ----------
   // Included: image_mode === 'normal' OR (image_mode === 'request' AND status === 'accepted')
   // Excluded: preview_once (isolated flow), unaccepted requests.
-  const normalOpenMsg = normalOpenKey ? messages.find((m) => m.id === normalOpenKey.split(":")[0]) : null;
+  void normalOpenKey;
 
   const normalGalleryItems: GalleryItem[] = (() => {
     const items: GalleryItem[] = [];
