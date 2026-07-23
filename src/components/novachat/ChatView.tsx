@@ -269,7 +269,7 @@ export function ChatView({
     for (const item of placeholders) processItem(item);
   };
 
-  const sendImages = async (caption: string, mode: "normal" | "request" | "preview_once" = "normal") => {
+  const sendImages = async (caption: string, mode: "normal" | "preview_once" = "normal") => {
     if (pending.length === 0) return;
     setUploading(true);
     setUploadPct(0);
@@ -312,7 +312,7 @@ export function ChatView({
         message_type: "image_request",
         attachments: uploaded as unknown as MessageRow["attachments"],
         image_mode: mode,
-        image_request_status: mode === "normal" ? "accepted" : "pending",
+        image_request_status: "pending",
         expires_at: null,
       } as MessageRow;
       setMessages((prev) => {
