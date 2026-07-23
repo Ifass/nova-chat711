@@ -198,7 +198,7 @@ function ReceiverPrompt({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="flex-1" onClick={doReject} disabled={!!busy}>
+          <Button size="sm" variant="destructive" className="flex-1" onClick={doReject} disabled={!!busy}>
             {busy === "decline" ? <Loader2 className="size-3.5 animate-spin" /> : <Ban className="size-3.5" />}
             Reject
           </Button>
