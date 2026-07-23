@@ -107,29 +107,38 @@ export function PreviewOnceMessage({
       <div className="p-1.5 max-w-[320px]">
         <div className="relative">
           <div className={cn("grid gap-0.5 rounded-lg overflow-hidden", cols === 1 ? "grid-cols-1" : "grid-cols-2")}>
-            {shown.map((a, i) => (
-              <div
-                key={a.path}
-                className={cn(
-                  "relative bg-muted overflow-hidden",
-                  count === 1 ? "aspect-video" : "aspect-square",
-                  count === 3 && i === 0 ? "row-span-2" : "",
-                )}
-              >
-                {thumbUrls?.[i] ? (
-                  <img src={thumbUrls[i]} alt="" loading="lazy" className="size-full object-cover" />
-                ) : (
-                  <div className="size-full flex items-center justify-center">
-                    <ImageIcon className="size-8 text-muted-foreground/50" />
-                  </div>
-                )}
-                {i === 3 && extra > 0 && (
-                  <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
-                    +{extra}
-                  </div>
-                )}
-              </div>
-            ))}
+            {shown.map((a, i) => {
+              const aspect =
+                count === 1
+                  ? a.width && a.height
+                    ? `${a.width} / ${a.height}`
+                    : undefined
+                  : undefined;
+              return (
+                <div
+                  key={a.path}
+                  style={aspect ? { aspectRatio: aspect } : undefined}
+                  className={cn(
+                    "relative overflow-hidden",
+                    count === 1 ? (aspect ? "" : "aspect-video") : "aspect-square",
+                    count === 3 && i === 0 ? "row-span-2" : "",
+                  )}
+                >
+                  {thumbUrls?.[i] ? (
+                    <ThumbImage src={thumbUrls[i]} className="size-full" />
+                  ) : (
+                    <div className="size-full nova-shimmer flex items-center justify-center">
+                      <ImageIcon className="size-8 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  {i === 3 && extra > 0 && (
+                    <div className="absolute inset-0 bg-black/60 text-white text-2xl font-semibold flex items-center justify-center">
+                      +{extra}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] flex items-center gap-1 font-medium shadow">
             <Eye className="size-3" /> Preview Once
