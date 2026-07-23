@@ -329,7 +329,7 @@ export function SupportNovaChat() {
           onClick={attempt}
           disabled={!canSubmit}
           size="lg"
-          className="mt-5 w-full h-12 text-base font-semibold gap-2"
+          className="mt-5 w-full h-12 text-base font-semibold gap-2 bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-[0_4px_14px_-4px_theme(colors.blue.600/40)] hover:shadow-[0_6px_20px_-6px_theme(colors.blue.600/50)]"
         >
           {loading ? (
             <>
@@ -339,7 +339,7 @@ export function SupportNovaChat() {
           ) : (
             <>
               <Heart className="size-4 fill-current" />
-              Support Nova Chat
+              Support us
               {selectedItem && amountValid ? ` · ₹${effectiveAmount}` : ""}
             </>
           )}
