@@ -236,10 +236,11 @@ export function SupportNovaChat() {
                 className={cn(
                   "group relative flex flex-col items-center justify-center gap-1 rounded-2xl border p-4 min-h-[104px]",
                   "bg-background/60 backdrop-blur-sm transition-all duration-200",
-                  "hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                  "hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+                  "hover:shadow-[0_0_0_1px_theme(colors.blue.500/15),0_6px_20px_-6px_theme(colors.blue.500/15)]",
                   active
-                    ? "border-primary/60 shadow-[0_0_0_3px_hsl(var(--primary)/0.15),0_8px_28px_-8px_hsl(var(--primary)/0.5)]"
-                    : "border-border/60 hover:border-border shadow-sm",
+                    ? "border-blue-500/60 shadow-[0_0_0_2px_theme(colors.blue.500/20),0_8px_24px_-8px_theme(colors.blue.500/20)]"
+                    : "border-border/60 hover:border-blue-400/40 shadow-sm",
                 )}
               >
                 <span className="text-3xl leading-none" aria-hidden>
