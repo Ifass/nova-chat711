@@ -102,34 +102,44 @@ export function RejectedImageGrid({
       <div className="p-1.5 max-w-[320px] animate-in fade-in duration-300">
         <div className="relative">
           <div className={cn("grid gap-0.5 rounded-lg overflow-hidden", cols === 1 ? "grid-cols-1" : "grid-cols-2")}>
-            {shown.map((a, i) => (
-              <div
-                key={a.path}
-                className={cn(
-                  "relative overflow-hidden bg-gradient-to-br from-muted via-muted/70 to-muted-foreground/20",
-                  count === 1 ? "aspect-video" : "aspect-square",
-                  count === 3 && i === 0 ? "row-span-2" : "",
-                )}
-              >
-                {thumbUrls?.[i] ? (
-                  <img
-                    src={thumbUrls[i]}
-                    alt=""
-                    aria-hidden
-                    draggable={false}
-                    className="size-full object-cover scale-125 blur-2xl select-none pointer-events-none transition-[filter,opacity] duration-300"
-                    style={{ filter: "blur(28px) saturate(1.1)" }}
-                  />
-                ) : null}
-                {/* dark overlay */}
-                <div className="absolute inset-0 bg-black/35" />
-                {i === 3 && extra > 0 && (
-                  <div className="absolute inset-0 text-white/90 text-2xl font-semibold flex items-center justify-center">
-                    +{extra}
-                  </div>
-                )}
-              </div>
-            ))}
+            {shown.map((a, i) => {
+              const aspect =
+                count === 1
+                  ? a.width && a.height
+                    ? `${a.width} / ${a.height}`
+                    : undefined
+                  : undefined;
+              return (
+                <div
+                  key={a.path}
+                  style={aspect ? { aspectRatio: aspect } : undefined}
+                  className={cn(
+                    "relative overflow-hidden bg-gradient-to-br from-muted via-muted/70 to-muted-foreground/20",
+                    count === 1 ? (aspect ? "" : "aspect-video") : "aspect-square",
+                    count === 3 && i === 0 ? "row-span-2" : "",
+                  )}
+                >
+                  {thumbUrls?.[i] ? (
+                    <img
+                      src={thumbUrls[i]}
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="size-full object-cover scale-125 blur-2xl select-none pointer-events-none transition-[filter,opacity] duration-300"
+                      style={{ filter: "blur(28px) saturate(1.1)" }}
+                    />
+                  ) : null}
+                  {/* dark overlay */}
+                  <div className="absolute inset-0 bg-black/35" />
+                  {i === 3 && extra > 0 && (
+                    <div className="absolute inset-0 text-white/90 text-2xl font-semibold flex items-center justify-center">
+                      +{extra}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
           </div>
           {badge && <div className="absolute top-1.5 left-1.5">{badge}</div>}
         </div>
