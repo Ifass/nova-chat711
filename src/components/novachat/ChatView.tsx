@@ -434,20 +434,41 @@ export function ChatView({
     map.set(r.emoji, { count: cur.count + 1, mine: cur.mine || r.user_id === me.id });
   }
 
-  // ---------- Chat image gallery (scoped to a single message) ----------
-  // Each image message opens its OWN gallery — navigation never crosses
-  // into other messages. Required for Preview Once privacy, and matches
-  // requested behavior for normal accepted images too.
+  // ---------- Chat image galleries (two independent viewers) ----------
+  // Normal viewer: navigates every normal image in the conversation.
+  // Preview Once viewer: scoped to the single message only (privacy).
   const openMsg = openKey ? messages.find((m) => m.id === openKey.split(":")[0]) : null;
-  const galleryItems: GalleryItem[] = openMsg
-    ? (Array.isArray(openMsg.attachments) ? openMsg.attachments : []).map((_, i) => ({
+  const isPreviewOnceOpen = openMsg?.image_mode === "preview_once";
+
+  const galleryItems: GalleryItem[] = (() => {
+    if (!openMsg) return [];
+    if (isPreviewOnceOpen) {
+      return (Array.isArray(openMsg.attachments) ? openMsg.attachments : []).map((_, i) => ({
         key: `${openMsg.id}:${i}`,
         msgId: openMsg.id,
         attIndex: i,
         senderId: openMsg.sender_id,
         createdAt: openMsg.created_at,
-      }))
-    : [];
+      }));
+    }
+    // Normal: every normal image message in the conversation.
+    const items: GalleryItem[] = [];
+    for (const m of messages) {
+      if (m.message_type !== "image_request") continue;
+      if (m.image_mode === "preview_once") continue;
+      const atts = Array.isArray(m.attachments) ? m.attachments : [];
+      for (let i = 0; i < atts.length; i++) {
+        items.push({
+          key: `${m.id}:${i}`,
+          msgId: m.id,
+          attIndex: i,
+          senderId: m.sender_id,
+          createdAt: m.created_at,
+        });
+      }
+    }
+    return items;
+  })();
 
   const senders: Record<string, ProfileLite> = { [me.id]: me, [peer.id]: peer };
 
