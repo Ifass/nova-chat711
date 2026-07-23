@@ -35,16 +35,15 @@ export function NormalImageMessage({
   const attachments: Att[] = Array.isArray(msg.attachments) ? (msg.attachments as Att[]) : [];
   const status = msg.image_request_status ?? "accepted";
 
-  // Terminal: rejected / expired — same card for both sides.
+  // Terminal: rejected / expired — keep the exact image container, blur it heavily.
   if (status === "declined" || status === "expired") {
     return (
-      <Bubble mine={mine}>
-        <div className="p-3 min-w-[220px] flex items-center gap-2 text-sm">
-          <Ban className="size-4 text-muted-foreground" />
-          <span>🚫 Image rejected</span>
-          <span className="ml-auto text-[10px] text-muted-foreground">{formatTime(msg.created_at)}</span>
-        </div>
-      </Bubble>
+      <RejectedImageGrid
+        mine={mine}
+        attachments={attachments}
+        thumbUrls={thumbUrls}
+        createdAt={msg.created_at}
+      />
     );
   }
 
