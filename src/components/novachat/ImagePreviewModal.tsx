@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon, Eye, Image as ImageIcon2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Send, Loader2, ImageIcon, Eye, Image as ImageIcon2, ImageDown } from "lucide-react";
 import { formatBytes, type PreparedImage } from "@/lib/image-utils";
 import { cn } from "@/lib/utils";
 
-export type ImageMode = "normal" | "preview_once";
+export type ImageMode = "normal" | "request" | "preview_once";
 
 export function ImagePreviewModal({
   open, images, onClose, onRemove, onSend, sending, progress,
@@ -126,16 +126,20 @@ export function ImagePreviewModal({
           </div>
         )}
         {/* Mode toggle */}
-        <div className="flex items-center gap-2 rounded-lg border border-border p-1 bg-muted/40">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/40">
           <ModeChip active={mode === "normal"} onClick={() => setMode("normal")} disabled={sending}
             icon={<ImageIcon2 className="size-3.5" />} label="Normal" />
+          <ModeChip active={mode === "request"} onClick={() => setMode("request")} disabled={sending}
+            icon={<ImageDown className="size-3.5" />} label="Image Request" />
           <ModeChip active={mode === "preview_once"} onClick={() => setMode("preview_once")} disabled={sending}
             icon={<Eye className="size-3.5" />} label="Preview Once" />
         </div>
         <div className="text-[11px] text-muted-foreground -mt-1 px-1">
           {mode === "preview_once"
-            ? "Recipient can view once, accept permanently, or decline. Access revokes after preview."
-            : "Recipient receives the image immediately, saved to their chat."}
+            ? "Recipient can view the image once. Access revokes after they open it."
+            : mode === "request"
+              ? "Recipient must Accept or Reject. Accepted images are saved permanently to the chat."
+              : "Recipient receives the image immediately, saved to their chat."}
         </div>
 
         <Input
