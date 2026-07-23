@@ -149,12 +149,12 @@ function ImageGrid({
           "flex items-center gap-2 px-2 pb-1 pt-0.5 text-[10px]",
           mine ? "text-bubble-me-foreground/70" : "text-muted-foreground",
         )}>
+          <span>{formatTime(msg.created_at)}</span>
           {rejected ? (
-            <span className="text-destructive/90 font-medium">❌ Image Rejected</span>
-          ) : (
-            <span>{formatTime(msg.created_at)}</span>
-          )}
-          {rejected ? <span className="ml-auto">{formatTime(msg.created_at)}</span> : statusNode && <span className="ml-auto">{statusNode}</span>}
+            <span className="ml-auto text-destructive/90 font-medium">❌ Rejected</span>
+          ) : statusNode ? (
+            <span className="ml-auto">{statusNode}</span>
+          ) : null}
         </div>
       </div>
     </Bubble>
