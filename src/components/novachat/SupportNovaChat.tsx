@@ -153,7 +153,7 @@ export function SupportNovaChat() {
         amount: order.amount,
         currency: order.currency,
         name: "Nova Chat",
-        description: `Support: ${selectedItem.emoji} ${selectedItem.name}`,
+        description: `Support - ${selectedItem.name}`.replace(/[^\x20-\x7E]/g, "").trim(),
         prefill: anonymous
           ? {}
           : {
