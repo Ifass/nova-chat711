@@ -807,56 +807,83 @@ export function ChatView({
             }
 
 
+            // Parse leading "> Name: quote\n" as a quoted reply preview.
+            let quote: string | null = null;
+            let body = m.content;
+            const qMatch = /^> ([^\n]{1,200})\n([\s\S]*)$/.exec(m.content);
+            if (qMatch) { quote = qMatch[1]; body = qMatch[2]; }
+
             return (
-              <div key={m.id} className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
-                <div className="flex flex-col items-stretch max-w-[80%] sm:max-w-[65%]">
-                  <div className={`flex items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
-                    <div className={`px-3 py-2 text-sm shadow-sm ${
-                      mine
-                        ? `bg-bubble-me text-bubble-me-foreground rounded-2xl ${tail ? "rounded-br-md" : ""}`
-                        : `bg-bubble-other text-bubble-other-foreground rounded-2xl ${tail ? "rounded-bl-md" : ""}`
-                    }`}>
-                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                      <div className={`flex items-center gap-1 justify-end mt-0.5 text-[10px] ${mine ? "text-bubble-me-foreground/70" : "text-muted-foreground"}`}>
-                        <span>{formatTime(m.created_at)}</span>
-                        {mine && (m.read_at ? <CheckCheck className="size-3 text-primary" /> : <Check className="size-3" />)}
-                      </div>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button aria-label="React" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground">
-                          <Smile className="size-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-1" side="top">
-                        <div className="flex gap-1">
-                          {REACTION_EMOJIS.map((e) => (
-                            <button key={e} onClick={() => toggleReaction(m.id, e)} className="text-xl hover:scale-125 transition-transform p-1">
-                              {e}
-                            </button>
-                          ))}
+              <SelectableMsg
+                key={m.id}
+                msgId={m.id}
+                selected={selected.has(m.id)}
+                selectionMode={selectionMode}
+                pinned={pinned.has(m.id)}
+                onEnter={enterSelect}
+                onToggle={toggleSelect}
+              >
+                <div className={`flex group ${mine ? "justify-end" : "justify-start"}`}>
+                  <div className="flex flex-col items-stretch max-w-[80%] sm:max-w-[65%]">
+                    <div className={`flex items-center gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+                      <div className={`px-3 py-2 text-sm shadow-sm ${
+                        mine
+                          ? `bg-bubble-me text-bubble-me-foreground rounded-2xl ${tail ? "rounded-br-md" : ""}`
+                          : `bg-bubble-other text-bubble-other-foreground rounded-2xl ${tail ? "rounded-bl-md" : ""}`
+                      }`}>
+                        {quote && (
+                          <div className={cn(
+                            "mb-1.5 pl-2 border-l-2 rounded-sm text-xs opacity-80 line-clamp-2",
+                            mine ? "border-bubble-me-foreground/60" : "border-primary",
+                          )}>
+                            {quote}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap break-words">{body}</div>
+                        <div className={`flex items-center gap-1 justify-end mt-0.5 text-[10px] ${mine ? "text-bubble-me-foreground/70" : "text-muted-foreground"}`}>
+                          <span>{formatTime(m.created_at)}</span>
+                          {mine && (m.read_at ? <CheckCheck className="size-3 text-primary" /> : <Check className="size-3" />)}
                         </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  {rx && rx.size > 0 && (
-                    <div className={`flex gap-1 mt-1 flex-wrap ${mine ? "justify-end" : "justify-start"}`}>
-                      {Array.from(rx.entries()).map(([emoji, info]) => (
-                        <button
-                          key={emoji}
-                          onClick={() => toggleReaction(m.id, emoji)}
-                          className={`text-xs px-1.5 py-0.5 rounded-full border ${
-                            info.mine ? "bg-primary/15 border-primary/40" : "bg-card border-border"
-                          }`}
-                        >
-                          {emoji} {info.count}
-                        </button>
-                      ))}
+                      </div>
+                      {!selectionMode && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button aria-label="React" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground">
+                              <Smile className="size-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-1" side="top">
+                            <div className="flex gap-1">
+                              {REACTION_EMOJIS.map((e) => (
+                                <button key={e} onClick={() => toggleReaction(m.id, e)} className="text-xl hover:scale-125 transition-transform p-1">
+                                  {e}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
-                  )}
+                    {rx && rx.size > 0 && (
+                      <div className={`flex gap-1 mt-1 flex-wrap ${mine ? "justify-end" : "justify-start"}`}>
+                        {Array.from(rx.entries()).map(([emoji, info]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(m.id, emoji)}
+                            className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                              info.mine ? "bg-primary/15 border-primary/40" : "bg-card border-border"
+                            }`}
+                          >
+                            {emoji} {info.count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </SelectableMsg>
             );
+
           })}
           {peerTyping && (
             <div className="flex justify-start">
