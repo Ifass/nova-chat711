@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { formatTime } from "@/lib/novachat-types";
 
 /**
  * ThumbImage — image with a pre-reserved container and a premium shimmer
@@ -70,89 +69,3 @@ export function Bubble({ mine, children }: { mine: boolean; children: React.Reac
 }
 
 export type Att = { path: string; size: number; width: number; height: number; mime: string };
-
-/**
- * Rejected image grid — Telegram-style.
- * Preserves the exact same container dimensions as the accepted grid, but renders
- * the thumbnail behind a heavy Gaussian blur + dark overlay so contents are
- * unrecognizable. Falls back to a stylized gradient when no thumbnail URL is
- * available (receiver never downloaded the image).
- */
-export function RejectedImageGrid({
-  mine,
-  attachments,
-  thumbUrls,
-  createdAt,
-  badge,
-}: {
-  mine: boolean;
-  attachments: Att[];
-  thumbUrls?: string[];
-  createdAt: string;
-  /** Optional badge to render top-left (e.g. "Preview Once"). */
-  badge?: React.ReactNode;
-}) {
-  const count = attachments.length;
-  const cols = count === 1 ? 1 : 2;
-  const shown = attachments.slice(0, 4);
-  const extra = count - shown.length;
-
-  return (
-    <Bubble mine={mine}>
-      <div className="p-1.5 max-w-[320px] animate-in fade-in duration-300">
-        <div className="relative">
-          <div className={cn("grid gap-0.5 rounded-lg overflow-hidden", cols === 1 ? "grid-cols-1" : "grid-cols-2")}>
-            {shown.map((a, i) => {
-              const aspect =
-                count === 1
-                  ? a.width && a.height
-                    ? `${a.width} / ${a.height}`
-                    : undefined
-                  : undefined;
-              return (
-                <div
-                  key={a.path}
-                  style={aspect ? { aspectRatio: aspect } : undefined}
-                  className={cn(
-                    "relative overflow-hidden bg-gradient-to-br from-muted via-muted/70 to-muted-foreground/20",
-                    count === 1 ? (aspect ? "" : "aspect-video") : "aspect-square",
-                    count === 3 && i === 0 ? "row-span-2" : "",
-                  )}
-                >
-                  {thumbUrls?.[i] ? (
-                    <img
-                      src={thumbUrls[i]}
-                      alt=""
-                      aria-hidden
-                      draggable={false}
-                      className="size-full object-cover scale-125 blur-2xl select-none pointer-events-none transition-[filter,opacity] duration-300"
-                      style={{ filter: "blur(28px) saturate(1.1)" }}
-                    />
-                  ) : null}
-                  {/* dark overlay */}
-                  <div className="absolute inset-0 bg-black/35" />
-                  {i === 3 && extra > 0 && (
-                    <div className="absolute inset-0 text-white/90 text-2xl font-semibold flex items-center justify-center">
-                      +{extra}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-          </div>
-          {badge && <div className="absolute top-1.5 left-1.5">{badge}</div>}
-        </div>
-        <div
-          className={cn(
-            "flex items-center gap-2 px-2 pb-1 pt-1 text-[11px]",
-            mine ? "text-bubble-me-foreground/70" : "text-muted-foreground",
-          )}
-        >
-          <span className="text-destructive/90 font-medium">❌ Image Rejected</span>
-          <span className="ml-auto">{formatTime(createdAt)}</span>
-        </div>
-      </div>
-    </Bubble>
-  );
-}
