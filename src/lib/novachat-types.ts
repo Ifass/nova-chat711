@@ -21,7 +21,7 @@ export type MessageRow = {
   attachments?: Attachment[] | null;
   caption?: string | null;
   image_request_status?: "pending" | "accepted" | "previewed" | "declined" | "expired" | null;
-  image_mode?: "normal" | "preview_once" | null;
+  image_mode?: "normal" | "request" | "preview_once" | null;
   expires_at?: string | null;
 };
 

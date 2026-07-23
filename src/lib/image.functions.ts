@@ -23,11 +23,11 @@ async function signPaths(paths: string[]) {
 /** Sender creates an image message. Files must already be uploaded under `${userId}/${messageId}/...`. */
 export const sendImageRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { messageId: string; receiverId: string; attachments: Attachment[]; caption?: string; mode?: "normal" | "preview_once" }) => {
+  .inputValidator((d: { messageId: string; receiverId: string; attachments: Attachment[]; caption?: string; mode?: "normal" | "request" | "preview_once" }) => {
     if (!d?.messageId || !d?.receiverId) throw new Error("messageId & receiverId required");
     if (!Array.isArray(d.attachments) || d.attachments.length === 0) throw new Error("No attachments");
     if (d.attachments.length > 10) throw new Error("Max 10 images per message");
-    if (d.mode && !["normal", "preview_once"].includes(d.mode)) throw new Error("Invalid mode");
+    if (d.mode && !["normal", "request", "preview_once"].includes(d.mode)) throw new Error("Invalid mode");
     return d;
   })
   .handler(async ({ data, context }) => {
@@ -39,7 +39,7 @@ export const sendImageRequest = createServerFn({ method: "POST" })
     const now = new Date();
     const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const mode = data.mode ?? "normal";
-    const isPreviewOnce = mode === "preview_once";
+    const needsAction = mode === "preview_once" || mode === "request";
     const { error } = await supabase.from("messages").insert({
       id: data.messageId,
       sender_id: userId,
@@ -49,9 +49,9 @@ export const sendImageRequest = createServerFn({ method: "POST" })
       message_type: "image_request",
       attachments: data.attachments as unknown as never,
       image_mode: mode,
-      image_request_status: isPreviewOnce ? "pending" : "accepted",
+      image_request_status: needsAction ? "pending" : "accepted",
       requested_at: now.toISOString(),
-      accepted_at: isPreviewOnce ? null : now.toISOString(),
+      accepted_at: needsAction ? null : now.toISOString(),
       expires_at: expires.toISOString(),
     });
     if (error) throw new Error(error.message);
