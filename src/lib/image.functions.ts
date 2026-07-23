@@ -168,7 +168,7 @@ export const getImageUrls = createServerFn({ method: "POST" })
     const status = msg.image_request_status ?? "pending";
     const purpose = data.purpose ?? "full";
     const canViewFull = isSender || (isReceiver && status === "accepted");
-    const canViewThumbnail = isSender || (isReceiver && (status === "accepted" || status === "declined"));
+    const canViewThumbnail = isSender || (isReceiver && (status === "accepted" || status === "declined" || status === "expired"));
     if (purpose === "full" && !canViewFull) throw new Error("Not accepted");
     if (purpose === "thumbnail" && !canViewThumbnail) throw new Error("Thumbnail unavailable");
     const attachments = ((msg.attachments as unknown) as Attachment[]);
