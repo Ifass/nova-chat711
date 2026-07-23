@@ -959,7 +959,9 @@ export function ChatView({
             <Send className="size-4" />
           </Button>
         </div>
+        </div>
       </form>
+
 
       <ImagePreviewModal
         open={pickerOpen}
