@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { respondImageRequest } from "@/lib/image.functions";
 import { formatTime, initials, type MessageRow, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { Bubble, RejectedImageGrid, type Att } from "./shared";
+import { Bubble, RejectedImageGrid, ThumbImage, type Att } from "./shared";
 
 /**
  * FLOW 3 — PREVIEW ONCE (receiver-driven)
