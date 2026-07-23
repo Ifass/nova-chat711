@@ -210,7 +210,7 @@ export function SupportNovaChat() {
             id="support-nova-heading"
             className="text-lg md:text-xl font-semibold flex items-center gap-2"
           >
-            <span aria-hidden>❤️</span> Support Nova Chat
+            <span aria-hidden>❤️</span> Support us
           </h2>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
             Love Nova Chat? Every contribution helps cover AI costs, servers,
