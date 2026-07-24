@@ -115,6 +115,7 @@ export const updateCallStatus = createServerFn({ method: "POST" })
         caller_id: call.caller_id,
         callee_id: call.callee_id,
         call_id: call.id,
+        call_type: (call as { call_type?: string }).call_type ?? "voice",
       };
       await supabaseAdmin.from("messages").insert({
         sender_id: call.caller_id,
