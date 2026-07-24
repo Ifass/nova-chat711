@@ -122,11 +122,42 @@ export const verifyDonationPayment = createServerFn({ method: "POST" })
     if (!existing) throw new Error("Donation record not found");
     if (existing.payment_status === "paid") return { ok: true, alreadyVerified: true };
 
+    let paymentMethod: string | null = null;
+    try {
+      const p = (await razorpayFetch(`/payments/${data.paymentId}`, { method: "GET" })) as {
+        method?: string;
+      };
+      paymentMethod = p.method ?? null;
+    } catch {
+      // non-fatal
+    }
+
     const { error } = await supabaseAdmin
       .from("donations")
-      .update({ payment_status: "paid", payment_id: data.paymentId })
+      .update({
+        payment_status: "paid",
+        payment_id: data.paymentId,
+        payment_method: paymentMethod,
+      })
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
 
     return { ok: true, alreadyVerified: false };
   });
+
+export const listMyDonations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("donations")
+      .select(
+        "id, amount_inr, currency, support_item, order_id, payment_id, payment_status, payment_method, anonymous, message, created_at",
+      )
+      .eq("user_id", context.userId)
+      .eq("payment_status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
