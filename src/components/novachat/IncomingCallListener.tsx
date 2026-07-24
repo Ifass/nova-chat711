@@ -33,7 +33,7 @@ export function IncomingCallListener({ meId }: { meId: string }) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "calls", filter: `callee_id=eq.${meId}` },
         async (payload) => {
-          const c = payload.new as { id: string; caller_id: string; status: string };
+          const c = payload.new as { id: string; caller_id: string; status: string; call_type?: string };
           if (c.status !== "ringing") return;
           const { data: peer } = await supabase.from("profiles")
             .select("id, username, display_name, unique_code, avatar_url, bio")
@@ -44,6 +44,7 @@ export function IncomingCallListener({ meId }: { meId: string }) {
             setActive((cur) => cur ?? {
               callId: c.id, token: t.token, url: t.url, peer: peer as ProfileLite,
               role: "callee", initialStatus: "ringing",
+              callType: (c.call_type === "video" ? "video" : "voice"),
             });
             setTimeout(async () => {
               // Only mark missed if the call is still ringing in the DB.
