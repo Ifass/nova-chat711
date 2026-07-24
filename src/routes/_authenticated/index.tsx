@@ -269,27 +269,52 @@ function AISidePanel({
         </div>
       </button>
 
-      <button
-        onClick={() => onSelect("support")}
-        className={cn(
-          "w-full text-left p-4 rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-500/5 hover:from-blue-500/20 transition-colors border",
-          activeMode === "support" ? "border-blue-500/50 ring-1 ring-blue-500/30" : "border-blue-500/20",
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <div className="size-12 rounded-xl bg-blue-600 text-white grid place-items-center text-2xl">
-            <span aria-hidden>❤️</span>
-          </div>
-          <div>
-            <div className="font-semibold">Support Us</div>
-            <div className="text-xs text-muted-foreground">Support Nova Chat</div>
-          </div>
-        </div>
-      </button>
-
       <p className="text-xs text-muted-foreground mt-2 px-1">
         Your personal AI assistants. Chats are private to your account.
       </p>
+
+      {/* Elegant divider separating AI assistants from Support section */}
+      <div className="pt-3">
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-blue-400/15 to-transparent dark:via-blue-300/15" />
+      </div>
+
+      <button
+        onClick={() => onSelect("support")}
+        className={cn(
+          "group relative w-full text-left p-4 rounded-xl overflow-hidden",
+          "bg-[linear-gradient(135deg,rgba(37,99,235,0.10),rgba(30,64,175,0.06))]",
+          "dark:bg-[linear-gradient(135deg,rgba(37,99,235,0.14),rgba(15,23,42,0.55))]",
+          "border transition-all duration-300 ease-out",
+          "hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98]",
+          activeMode === "support"
+            ? "border-blue-500/60 shadow-[0_0_0_1px_rgba(59,130,246,0.35),0_10px_30px_-10px_rgba(59,130,246,0.55)]"
+            : "border-blue-500/25 shadow-[0_6px_20px_-12px_rgba(59,130,246,0.55)] hover:border-blue-400/60 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.30),0_14px_36px_-12px_rgba(59,130,246,0.55)]",
+        )}
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-6 -top-6 size-28 rounded-full bg-blue-500/25 blur-2xl opacity-70 group-hover:opacity-100 transition-opacity duration-300"
+        />
+        <div className="relative flex items-center gap-3">
+          <div className="relative shrink-0">
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-xl bg-blue-500/40 blur-md opacity-60 group-hover:opacity-90 transition-opacity"
+            />
+            <div className="relative size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-white grid place-items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-transform duration-300 group-hover:rotate-[4deg] animate-[nova-heart-pulse_2.6s_ease-in-out_infinite]">
+              <span className="text-xl" aria-hidden>❤️</span>
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold flex items-center gap-1.5">
+              <span aria-hidden>❤️</span> Support Us
+            </div>
+            <div className="text-xs text-muted-foreground truncate">
+              Support the future of Nova Chat
+            </div>
+          </div>
+        </div>
+      </button>
     </div>
   );
 }
