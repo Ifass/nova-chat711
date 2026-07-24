@@ -56,7 +56,7 @@ function previewOf(m: MessageRow): string {
     return m.caption ? `📷 ${m.caption}` : `📷 Photo${n > 1 ? ` (${n})` : ""}`;
   }
   const call = parseCallLog(m.content);
-  if (call) return "📞 Voice call";
+  if (call) return call.call_type === "video" ? "🎥 Video call" : "📞 Voice call";
   return m.content || "";
 }
 
