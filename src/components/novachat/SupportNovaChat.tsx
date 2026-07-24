@@ -41,12 +41,12 @@ type SupportItem = {
 };
 
 const ITEMS: SupportItem[] = [
-  { id: "coffee", emoji: "☕", name: "Coffee", amount: 100 },
-  { id: "fries", emoji: "🍟", name: "Fries", amount: 150 },
-  { id: "burger", emoji: "🍔", name: "Burger", amount: 250 },
-  { id: "pizza", emoji: "🍕", name: "Pizza", amount: 300 },
-  { id: "noodles", emoji: "🍜", name: "Noodles", amount: 350 },
-  { id: "cake", emoji: "🍰", name: "Cake", amount: 500 },
+  { id: "coffee", emoji: "☕", name: "Buy Me a Coffee", amount: 100 },
+  { id: "fries", emoji: "🍟", name: "Buy Me Fries", amount: 150 },
+  { id: "burger", emoji: "🍔", name: "Buy Me a Burger", amount: 250 },
+  { id: "pizza", emoji: "🍕", name: "Buy Me a Pizza", amount: 300 },
+  { id: "noodles", emoji: "🍜", name: "Buy Me Noodles", amount: 350 },
+  { id: "cake", emoji: "🍰", name: "Buy Me Cake", amount: 500 },
   { id: "surprise", emoji: "🎁", name: "Surprise Gift", amount: null },
 ];
 
@@ -246,11 +246,11 @@ export function SupportNovaChat({ onBack }: { onBack?: () => void } = {}) {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6">
+        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6 animate-fade-in">
           <section aria-labelledby="support-nova-heading" className="animate-fade-in">
             <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 md:p-6 shadow-sm">
               <p id="support-nova-heading" className="text-sm text-muted-foreground leading-relaxed mb-5">
-                Your support helps pay for AI costs, servers, infrastructure and future updates.
+                Every contribution helps keep Nova Chat growing by supporting AI costs, servers, infrastructure, maintenance, and future updates.
               </p>
 
               <div
@@ -394,8 +394,14 @@ export function SupportNovaChat({ onBack }: { onBack?: () => void } = {}) {
                 <Loader2 className="size-4 animate-spin" /> Loading history…
               </div>
             ) : !history || history.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-8 text-center text-sm text-muted-foreground">
-                No support history yet.
+              <div className="rounded-2xl border border-dashed border-blue-500/20 bg-card/40 p-10 text-center">
+                <div className="mx-auto size-14 rounded-2xl bg-blue-500/10 text-blue-500 dark:text-blue-400 grid place-items-center mb-3 text-2xl">
+                  <span aria-hidden>❤️</span>
+                </div>
+                <div className="font-semibold">No support history yet.</div>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Your contributions will appear here after your first successful support.
+                </p>
               </div>
             ) : (
               <ul className="space-y-3">
