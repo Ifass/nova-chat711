@@ -79,7 +79,7 @@ export const updateCallStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: call } = await supabase.from("calls")
-      .select("id, caller_id, callee_id, started_at, status").eq("id", data.callId).maybeSingle();
+      .select("id, caller_id, callee_id, started_at, status, call_type").eq("id", data.callId).maybeSingle();
     if (!call) throw new Error("Call not found");
     if (call.caller_id !== userId && call.callee_id !== userId) throw new Error("Not a participant");
 
