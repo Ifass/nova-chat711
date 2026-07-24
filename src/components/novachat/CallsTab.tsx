@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, PhoneOff, Search } from "lucide-react";
+import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, PhoneOff, Search, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ type CallRow = {
   created_at: string;
   started_at: string | null;
   ended_at: string | null;
+  call_type: string | null;
 };
 
 type CallEntry = {
@@ -60,7 +61,7 @@ export function CallsTab({
   const load = async () => {
     const { data: calls } = await supabase
       .from("calls")
-      .select("id, caller_id, callee_id, status, duration_seconds, created_at, started_at, ended_at")
+      .select("id, caller_id, callee_id, status, duration_seconds, created_at, started_at, ended_at, call_type")
       .or(`caller_id.eq.${me.id},callee_id.eq.${me.id}`)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -151,7 +152,9 @@ export function CallsTab({
                         <meta.Icon className={cn("size-3.5", meta.tone)} />
                         <span>{meta.label}</span>
                         <span>·</span>
-                        <span>Voice</span>
+                        {e.call.call_type === "video"
+                          ? <span className="inline-flex items-center gap-1"><Video className="size-3.5" />Video</span>
+                          : <span className="inline-flex items-center gap-1"><Phone className="size-3.5" />Voice</span>}
                         <span>·</span>
                         <span>{formatDuration(e.call.duration_seconds)}</span>
                       </div>

@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Star } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Star, Video, VideoOff,
+  Monitor, MonitorOff, Settings2, PictureInPicture2, Signal, SignalHigh, SignalLow, SignalMedium,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Room, RoomEvent, ConnectionState, Track,
-  type RemoteTrack, type RemoteParticipant,
+  Room, RoomEvent, ConnectionState, Track, ConnectionQuality,
+  type RemoteTrack, type RemoteParticipant, type LocalTrackPublication,
 } from "livekit-client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { initials, type ProfileLite } from "@/lib/novachat-types";
 import { cn } from "@/lib/utils";
-import { getCallToken, updateCallStatus, rateCall } from "@/lib/call.functions";
+import { getCallToken, updateCallStatus, rateCall, setCallType } from "@/lib/call.functions";
 
 type Props = {
   callId: string;
@@ -22,26 +29,47 @@ type Props = {
   peer: ProfileLite;
   role: "caller" | "callee";
   initialStatus: "ringing" | "accepted";
+  callType?: "voice" | "video";
   onClose: () => void;
 };
 
-export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClose }: Props) {
+export function VoiceCall({ callId, token, url, peer, role, initialStatus, callType = "voice", onClose }: Props) {
   const updateStatus = useServerFn(updateCallStatus);
   const fetchToken = useServerFn(getCallToken);
   const rate = useServerFn(rateCall);
+  const changeType = useServerFn(setCallType);
 
   const [status, setStatus] = useState<"ringing" | "connecting" | "connected" | "ended">(
     initialStatus === "accepted" ? "connecting" : "ringing"
   );
+  const [mode, setMode] = useState<"voice" | "video">(callType);
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState(true);
+  const [camOn, setCamOn] = useState(callType === "video");
+  const [screenOn, setScreenOn] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [showRating, setShowRating] = useState(false);
   const [stars, setStars] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [quality, setQuality] = useState<ConnectionQuality>(ConnectionQuality.Unknown);
+  const [pipOn, setPipOn] = useState(false);
+  const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+
+  const [devices, setDevices] = useState<{ cams: MediaDeviceInfo[]; mics: MediaDeviceInfo[]; spks: MediaDeviceInfo[] }>({ cams: [], mics: [], spks: [] });
+  const [selectedCam, setSelectedCam] = useState<string>("");
+  const [selectedMic, setSelectedMic] = useState<string>("");
+  const [selectedSpk, setSelectedSpk] = useState<string>("");
 
   const roomRef = useRef<Room | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Draggable local preview
+  const pipRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef({ dragging: false, dx: 0, dy: 0 });
+  const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null);
 
   // timer
   useEffect(() => {
@@ -51,8 +79,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     return () => clearInterval(i);
   }, [status]);
 
-  // Watch the call row: when either party terminates, tear down immediately
-  // on the other side (stops ringtone, vibration, room, dialog).
+  // Watch call row for termination + type changes (upgrade to video)
   useEffect(() => {
     const ch = supabase
       .channel(`call-watch-${callId}`)
@@ -60,21 +87,28 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "calls", filter: `id=eq.${callId}` },
         (payload) => {
-          const s = (payload.new as { status?: string }).status;
-          if (s === "ended" || s === "declined" || s === "missed") {
+          const row = payload.new as { status?: string; call_type?: string };
+          if (row.status === "ended" || row.status === "declined" || row.status === "missed") {
             setStatus("ended");
             try { roomRef.current?.disconnect(); } catch { /* ignore */ }
             roomRef.current = null;
             setShowRating(false);
             onClose();
+            return;
+          }
+          if (row.call_type === "video" && mode !== "video") {
+            setMode("video");
+            toast.message(`${peer.display_name} switched to video`);
+          } else if (row.call_type === "voice" && mode !== "voice") {
+            setMode("voice");
           }
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [callId, onClose]);
+  }, [callId, onClose, mode, peer.display_name]);
 
-  // Ringtone (callee incoming) / ringback (caller waiting) — synthesized via Web Audio
+  // Ringtone / ringback
   useEffect(() => {
     if (status !== "ringing" && status !== "connecting") return;
     if (status === "connecting" && role === "callee") return;
@@ -89,7 +123,6 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
 
     let stopped = false;
     const oscs: OscillatorNode[] = [];
-
     const playTone = (freqs: number[], durationMs: number) => {
       if (stopped) return;
       const g = ctx.createGain();
@@ -100,41 +133,23 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
       g.connect(master);
       for (const f of freqs) {
         const o = ctx.createOscillator();
-        o.type = "sine";
-        o.frequency.value = f;
-        o.connect(g);
-        o.start();
-        o.stop(ctx.currentTime + durationMs / 1000 + 0.05);
+        o.type = "sine"; o.frequency.value = f; o.connect(g);
+        o.start(); o.stop(ctx.currentTime + durationMs / 1000 + 0.05);
         oscs.push(o);
       }
     };
-
-    // Classic ring cadence: two short tones, pause, repeat
     const ringOnce = () => {
-      if (role === "callee") {
-        // louder double-ring
-        playTone([440, 480], 400);
-        setTimeout(() => playTone([440, 480], 400), 600);
-      } else {
-        // ringback: single long tone (US style ~ 440+480 for 2s, 4s silence)
-        playTone([440, 480], 1500);
-      }
+      if (role === "callee") { playTone([440, 480], 400); setTimeout(() => playTone([440, 480], 400), 600); }
+      else { playTone([440, 480], 1500); }
     };
     ringOnce();
     const interval = setInterval(ringOnce, role === "callee" ? 2400 : 4000);
-
-    // Try to resume in case autoplay policy suspended it
     ctx.resume().catch(() => {});
-
-    // Vibrate on incoming (callee) if supported
     let vibrateInterval: ReturnType<typeof setInterval> | null = null;
     if (role === "callee" && "vibrate" in navigator) {
       try { navigator.vibrate([400, 200, 400, 1400]); } catch { /* ignore */ }
-      vibrateInterval = setInterval(() => {
-        try { navigator.vibrate?.([400, 200, 400, 1400]); } catch { /* ignore */ }
-      }, 2400);
+      vibrateInterval = setInterval(() => { try { navigator.vibrate?.([400, 200, 400, 1400]); } catch { /* ignore */ } }, 2400);
     }
-
     return () => {
       stopped = true;
       clearInterval(interval);
@@ -145,27 +160,44 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
     };
   }, [status, role]);
 
+  const attachRemoteVideo = useCallback(() => {
+    const room = roomRef.current;
+    if (!room || !remoteVideoRef.current) return;
+    for (const p of room.remoteParticipants.values()) {
+      const cam = p.getTrackPublication(Track.Source.Camera) ?? p.getTrackPublication(Track.Source.ScreenShare);
+      if (cam?.track) { cam.track.attach(remoteVideoRef.current); setRemoteHasVideo(true); return; }
+    }
+    setRemoteHasVideo(false);
+  }, []);
 
+  const attachLocalVideo = useCallback(() => {
+    const room = roomRef.current;
+    if (!room || !localVideoRef.current) return;
+    const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+    const track = pub?.track;
+    if (track) { track.attach(localVideoRef.current); } else { localVideoRef.current.srcObject = null; }
+  }, []);
 
   const cancelledRef = useRef(false);
 
-  const connect = async (tk: string) => {
+  const connect = async (tk: string, initialVideo: boolean) => {
     if (cancelledRef.current) return;
-    // Reuse existing room if a previous attempt already created one
-    if (roomRef.current) {
-      try { await roomRef.current.disconnect(); } catch { /* ignore */ }
-      roomRef.current = null;
-    }
+    if (roomRef.current) { try { await roomRef.current.disconnect(); } catch { /* ignore */ } roomRef.current = null; }
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
+
     const markConnectedIfPeerPresent = () => {
       if (cancelledRef.current) return;
       if (room.remoteParticipants.size > 0) setStatus("connected");
     };
-    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub, _p: RemoteParticipant) => {
-      if (track.kind === Track.Kind.Audio && audioElRef.current) {
-        track.attach(audioElRef.current);
-      }
+
+    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+      if (track.kind === Track.Kind.Audio && audioElRef.current) track.attach(audioElRef.current);
+      if (track.kind === Track.Kind.Video) attachRemoteVideo();
+    });
+    room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+      try { track.detach(); } catch { /* ignore */ }
+      if (track.kind === Track.Kind.Video) attachRemoteVideo();
     });
     room.on(RoomEvent.ParticipantConnected, () => markConnectedIfPeerPresent());
     room.on(RoomEvent.ParticipantDisconnected, () => endCall("remote_left"));
@@ -173,46 +205,69 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
       if (s === ConnectionState.Connected) markConnectedIfPeerPresent();
       if (s === ConnectionState.Disconnected) setStatus((cur) => cur === "ended" ? cur : "ended");
     });
+    room.on(RoomEvent.ConnectionQualityChanged, (q, p) => {
+      if (p?.identity === room.localParticipant.identity) setQuality(q);
+    });
+    room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
+      if (pub.source === Track.Source.Camera) attachLocalVideo();
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
+      if (pub.source === Track.Source.Camera) attachLocalVideo();
+    });
+
     try {
       await room.connect(url, tk);
-      if (cancelledRef.current) {
-        await room.disconnect();
-        return;
-      }
+      if (cancelledRef.current) { await room.disconnect(); return; }
       await room.localParticipant.setMicrophoneEnabled(true);
+      if (initialVideo) {
+        try { await room.localParticipant.setCameraEnabled(true); setCamOn(true); }
+        catch { setCamOn(false); toast.error("Camera unavailable"); }
+      }
+      attachLocalVideo();
+      attachRemoteVideo();
+      // Enumerate devices once we have permission
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices();
+        setDevices({
+          cams: list.filter((d) => d.kind === "videoinput"),
+          mics: list.filter((d) => d.kind === "audioinput"),
+          spks: list.filter((d) => d.kind === "audiooutput"),
+        });
+      } catch { /* ignore */ }
     } catch (e) {
-      // Suppress the benign "Client initiated disconnect" that fires when
-      // React re-invokes the mount effect (StrictMode / fast refresh).
       const msg = e instanceof Error ? e.message : String(e);
       if (cancelledRef.current || /client initiated disconnect/i.test(msg)) return;
       throw e;
     }
   };
 
-  // Caller: connect immediately. Callee: connects after accepting.
+  // Caller connects immediately; callee connects after accepting
   useEffect(() => {
     cancelledRef.current = false;
     if (role === "caller") {
       setStatus("connecting");
-      connect(token).catch((e) => { toast.error(e.message); onClose(); });
+      connect(token, mode === "video").catch((e) => { toast.error(e.message); onClose(); });
     } else if (initialStatus === "accepted") {
-      connect(token).catch((e) => { toast.error(e.message); onClose(); });
+      connect(token, mode === "video").catch((e) => { toast.error(e.message); onClose(); });
     }
     return () => {
       cancelledRef.current = true;
       const r = roomRef.current;
       roomRef.current = null;
-      if (r) { r.disconnect().catch(() => {}); }
+      if (r) r.disconnect().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-attach remote video when its element (re)mounts due to mode switch
+  useEffect(() => { if (mode === "video") { attachRemoteVideo(); attachLocalVideo(); } }, [mode, attachRemoteVideo, attachLocalVideo]);
 
   const accept = async () => {
     try {
       await updateStatus({ data: { callId, status: "accepted" } });
       const t = await fetchToken({ data: { callId } });
       setStatus("connecting");
-      await connect(t.token);
+      await connect(t.token, mode === "video");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to join");
       onClose();
@@ -240,73 +295,310 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, onClo
   };
 
   const toggleSpeaker = () => {
-    if (audioElRef.current) audioElRef.current.muted = speaker; // currently on → mute output
+    if (audioElRef.current) audioElRef.current.muted = speaker;
     setSpeaker((s) => !s);
   };
 
-  const submitRating = async () => {
-    if (stars > 0) {
-      try { await rate({ data: { callId, stars, feedback: feedback.trim() || undefined } }); } catch { /* ignore */ }
+  const toggleCamera = async () => {
+    const r = roomRef.current; if (!r) return;
+    const next = !camOn;
+    try {
+      await r.localParticipant.setCameraEnabled(next);
+      setCamOn(next);
+      attachLocalVideo();
+      if (next && mode !== "video") {
+        setMode("video");
+        try { await changeType({ data: { callId, callType: "video" } }); } catch { /* ignore */ }
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Camera error");
     }
+  };
+
+  const switchToVideo = async () => {
+    if (mode === "video") return;
+    setMode("video");
+    try { await changeType({ data: { callId, callType: "video" } }); } catch { /* ignore */ }
+    const r = roomRef.current;
+    if (r && !camOn) { try { await r.localParticipant.setCameraEnabled(true); setCamOn(true); attachLocalVideo(); } catch { /* ignore */ } }
+  };
+
+  const switchToVoice = async () => {
+    if (mode === "voice") return;
+    const r = roomRef.current;
+    if (r) { try { await r.localParticipant.setCameraEnabled(false); } catch { /* ignore */ } }
+    setCamOn(false);
+    setMode("voice");
+    try { await changeType({ data: { callId, callType: "voice" } }); } catch { /* ignore */ }
+  };
+
+  const toggleScreenShare = async () => {
+    const r = roomRef.current; if (!r) return;
+    try {
+      await r.localParticipant.setScreenShareEnabled(!screenOn);
+      setScreenOn(!screenOn);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Screen share unavailable");
+    }
+  };
+
+  const togglePip = async () => {
+    const v = remoteVideoRef.current; if (!v) return;
+    type PipDoc = Document & { pictureInPictureElement?: Element | null; exitPictureInPicture?: () => Promise<void> };
+    type PipVideo = HTMLVideoElement & { requestPictureInPicture?: () => Promise<unknown> };
+    const doc = document as PipDoc;
+    try {
+      if (doc.pictureInPictureElement) { await doc.exitPictureInPicture?.(); setPipOn(false); }
+      else { await (v as PipVideo).requestPictureInPicture?.(); setPipOn(true); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "PiP not supported");
+    }
+  };
+
+  const toggleFullscreen = async () => {
+    const el = containerRef.current; if (!el) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await el.requestFullscreen();
+    } catch { /* ignore */ }
+  };
+
+  const chooseCam = async (id: string) => {
+    setSelectedCam(id);
+    try { await roomRef.current?.switchActiveDevice("videoinput", id); attachLocalVideo(); } catch { /* ignore */ }
+  };
+  const chooseMic = async (id: string) => {
+    setSelectedMic(id);
+    try { await roomRef.current?.switchActiveDevice("audioinput", id); } catch { /* ignore */ }
+  };
+  const chooseSpk = async (id: string) => {
+    setSelectedSpk(id);
+    try {
+      await roomRef.current?.switchActiveDevice("audiooutput", id);
+      const a = audioElRef.current as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+      await a?.setSinkId?.(id);
+    } catch { /* ignore */ }
+  };
+
+  const submitRating = async () => {
+    if (stars > 0) { try { await rate({ data: { callId, stars, feedback: feedback.trim() || undefined } }); } catch { /* ignore */ } }
     setShowRating(false); onClose();
+  };
+
+  // Draggable local video PiP
+  const onPipPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = pipRef.current; if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    const rect = el.getBoundingClientRect();
+    dragState.current = { dragging: true, dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+  };
+  const onPipPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragState.current.dragging) return;
+    const el = pipRef.current; if (!el) return;
+    const parent = containerRef.current?.getBoundingClientRect();
+    if (!parent) return;
+    const x = Math.max(8, Math.min(parent.width - el.offsetWidth - 8, e.clientX - parent.left - dragState.current.dx));
+    const y = Math.max(8, Math.min(parent.height - el.offsetHeight - 8, e.clientY - parent.top - dragState.current.dy));
+    setPipPos({ x, y });
+  };
+  const onPipPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = pipRef.current;
+    try { el?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    dragState.current.dragging = false;
   };
 
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-gradient-to-b from-primary/95 to-background text-foreground flex flex-col">
-      <audio ref={audioElRef} autoPlay playsInline />
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-        <div className="text-xs uppercase tracking-widest text-primary-foreground/80 mb-3">
-          {status === "ringing" && role === "caller" && "Calling…"}
-          {status === "ringing" && role === "callee" && "Incoming voice call"}
-          {status === "connecting" && "Connecting…"}
-          {status === "connected" && "On call"}
-          {status === "ended" && "Call ended"}
-        </div>
-        <Avatar className="size-32 mb-5 ring-4 ring-primary-foreground/30 shadow-2xl">
-          <AvatarImage src={peer.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
-            {initials(peer.display_name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="text-2xl font-semibold text-primary-foreground">{peer.display_name}</div>
-        <div className="text-sm text-primary-foreground/70 mb-6">@{peer.username}</div>
-        {status === "connected" && (
-          <div className="font-mono text-lg text-primary-foreground/90">{fmt(elapsed)}</div>
-        )}
-      </div>
+  const qualityIcon = useMemo(() => {
+    if (quality === ConnectionQuality.Excellent) return { Icon: SignalHigh, tone: "text-emerald-400", label: "Excellent" };
+    if (quality === ConnectionQuality.Good) return { Icon: SignalMedium, tone: "text-emerald-300", label: "Good" };
+    if (quality === ConnectionQuality.Poor) return { Icon: SignalLow, tone: "text-amber-400", label: "Poor" };
+    return { Icon: Signal, tone: "text-white/60", label: "—" };
+  }, [quality]);
 
-      <div className="pb-10 px-6 flex justify-center gap-5">
+  const isVideo = mode === "video" && status === "connected";
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "fixed inset-0 z-[100] flex flex-col text-foreground",
+        isVideo ? "bg-black text-white" : "bg-gradient-to-b from-primary/95 to-background"
+      )}
+    >
+      <audio ref={audioElRef} autoPlay playsInline />
+
+      {isVideo ? (
+        <>
+          {/* Remote full-screen video */}
+          <div className="absolute inset-0">
+            {remoteHasVideo ? (
+              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-900 to-black">
+                <Avatar className="size-28 ring-4 ring-white/10">
+                  <AvatarImage src={peer.avatar_url ?? undefined} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{initials(peer.display_name)}</AvatarFallback>
+                </Avatar>
+                <div className="text-white/80 text-sm">{peer.display_name}'s camera is off</div>
+              </div>
+            )}
+          </div>
+
+          {/* Top bar */}
+          <div className="relative z-10 flex items-center gap-3 p-4 bg-gradient-to-b from-black/60 to-transparent">
+            <Avatar className="size-9 ring-2 ring-white/20">
+              <AvatarImage src={peer.avatar_url ?? undefined} />
+              <AvatarFallback>{initials(peer.display_name)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold truncate">{peer.display_name}</div>
+              <div className="text-xs text-white/70 font-mono">{fmt(elapsed)}</div>
+            </div>
+            <div className="flex items-center gap-1 text-xs bg-white/10 rounded-full px-2 py-1">
+              <qualityIcon.Icon className={cn("size-4", qualityIcon.tone)} />
+              <span className="hidden sm:inline">{qualityIcon.label}</span>
+            </div>
+          </div>
+
+          {/* Draggable local preview */}
+          <div
+            ref={pipRef}
+            onPointerDown={onPipPointerDown}
+            onPointerMove={onPipPointerMove}
+            onPointerUp={onPipPointerUp}
+            style={pipPos ? { left: pipPos.x, top: pipPos.y, right: "auto", bottom: "auto" } : undefined}
+            className="absolute right-4 bottom-32 sm:bottom-28 w-28 h-40 sm:w-36 sm:h-52 rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/20 bg-black/60 cursor-grab active:cursor-grabbing touch-none select-none"
+          >
+            {camOn ? (
+              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+            ) : (
+              <div className="w-full h-full grid place-items-center bg-zinc-900 text-white/60 text-xs">
+                <VideoOff className="size-6" />
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <div className="text-xs uppercase tracking-widest text-primary-foreground/80 mb-3">
+            {status === "ringing" && role === "caller" && `Calling…${callType === "video" ? " (video)" : ""}`}
+            {status === "ringing" && role === "callee" && `Incoming ${callType} call`}
+            {status === "connecting" && "Connecting…"}
+            {status === "connected" && "On call"}
+            {status === "ended" && "Call ended"}
+          </div>
+          <Avatar className="size-32 mb-5 ring-4 ring-primary-foreground/30 shadow-2xl">
+            <AvatarImage src={peer.avatar_url ?? undefined} />
+            <AvatarFallback className="bg-primary text-primary-foreground text-4xl">{initials(peer.display_name)}</AvatarFallback>
+          </Avatar>
+          <div className="text-2xl font-semibold text-primary-foreground">{peer.display_name}</div>
+          <div className="text-sm text-primary-foreground/70 mb-6">@{peer.username}</div>
+          {status === "connected" && <div className="font-mono text-lg text-primary-foreground/90">{fmt(elapsed)}</div>}
+          {status === "connected" && (
+            <div className="mt-3 flex items-center gap-1 text-xs text-primary-foreground/70">
+              <qualityIcon.Icon className={cn("size-4", qualityIcon.tone)} />
+              <span>{qualityIcon.label}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className={cn("relative z-10 pb-8 sm:pb-10 px-4 sm:px-6 flex justify-center", isVideo && "pt-6 bg-gradient-to-t from-black/70 to-transparent")}>
         {status === "ringing" && role === "callee" ? (
-          <>
+          <div className="flex gap-5">
             <button onClick={decline} className="size-16 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-lg hover:scale-105 transition" aria-label="Decline">
               <PhoneOff className="size-7" />
             </button>
             <button onClick={accept} className="size-16 rounded-full bg-emerald-500 text-white grid place-items-center shadow-lg hover:scale-105 transition" aria-label="Accept">
-              <Phone className="size-7" />
+              {callType === "video" ? <Video className="size-7" /> : <Phone className="size-7" />}
             </button>
-          </>
+          </div>
         ) : (
-          <>
-            <button onClick={toggleMute} className={cn("size-14 rounded-full grid place-items-center backdrop-blur transition", muted ? "bg-destructive text-destructive-foreground" : "bg-white/15 text-primary-foreground hover:bg-white/25")} aria-label={muted ? "Unmute" : "Mute"}>
+          <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-4 max-w-full">
+            <button onClick={toggleMute} className={cn("size-12 sm:size-14 rounded-full grid place-items-center backdrop-blur transition", muted ? "bg-destructive text-destructive-foreground" : isVideo ? "bg-white/15 text-white hover:bg-white/25" : "bg-white/15 text-primary-foreground hover:bg-white/25")} aria-label={muted ? "Unmute" : "Mute"}>
               {muted ? <MicOff className="size-6" /> : <Mic className="size-6" />}
             </button>
+
+            <button onClick={toggleCamera} disabled={status !== "connected"} className={cn("size-12 sm:size-14 rounded-full grid place-items-center backdrop-blur transition disabled:opacity-40", !camOn ? "bg-white/15 text-white/90 hover:bg-white/25" : "bg-white text-black hover:bg-white/90")} aria-label={camOn ? "Turn camera off" : "Turn camera on"}>
+              {camOn ? <Video className="size-6" /> : <VideoOff className="size-6" />}
+            </button>
+
+            {mode === "video" ? (
+              <button onClick={switchToVoice} className="size-12 sm:size-14 rounded-full grid place-items-center bg-white/15 text-white hover:bg-white/25 transition" aria-label="Switch to voice">
+                <Phone className="size-6" />
+              </button>
+            ) : (
+              <button onClick={switchToVideo} disabled={status !== "connected"} className="size-12 sm:size-14 rounded-full grid place-items-center bg-white/15 text-primary-foreground hover:bg-white/25 transition disabled:opacity-40" aria-label="Switch to video">
+                <Video className="size-6" />
+              </button>
+            )}
+
             <button onClick={() => endCall("hangup")} className="size-16 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-lg hover:scale-105 transition" aria-label="End call">
               <PhoneOff className="size-7" />
             </button>
-            <button onClick={toggleSpeaker} className={cn("size-14 rounded-full grid place-items-center backdrop-blur transition", !speaker ? "bg-white/35 text-primary-foreground" : "bg-white/15 text-primary-foreground hover:bg-white/25")} aria-label="Toggle speaker">
+
+            <button onClick={toggleSpeaker} className={cn("size-12 sm:size-14 rounded-full grid place-items-center backdrop-blur transition", !speaker ? "bg-white/35 text-primary-foreground" : isVideo ? "bg-white/15 text-white hover:bg-white/25" : "bg-white/15 text-primary-foreground hover:bg-white/25")} aria-label="Toggle speaker">
               {speaker ? <Volume2 className="size-6" /> : <VolumeX className="size-6" />}
             </button>
-          </>
+
+            {isVideo && (
+              <button onClick={toggleScreenShare} className={cn("size-12 sm:size-14 rounded-full grid place-items-center transition", screenOn ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/25")} aria-label="Share screen">
+                {screenOn ? <MonitorOff className="size-6" /> : <Monitor className="size-6" />}
+              </button>
+            )}
+            {isVideo && "pictureInPictureEnabled" in document && (
+              <button onClick={togglePip} className={cn("size-12 sm:size-14 rounded-full grid place-items-center transition", pipOn ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/25")} aria-label="Picture in picture">
+                <PictureInPicture2 className="size-6" />
+              </button>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={cn("size-12 sm:size-14 rounded-full grid place-items-center backdrop-blur transition", isVideo ? "bg-white/15 text-white hover:bg-white/25" : "bg-white/15 text-primary-foreground hover:bg-white/25")} aria-label="Devices">
+                  <Settings2 className="size-6" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-80 overflow-auto w-64">
+                <DropdownMenuLabel>Microphone</DropdownMenuLabel>
+                {devices.mics.length === 0 && <DropdownMenuItem disabled>None</DropdownMenuItem>}
+                {devices.mics.map((d) => (
+                  <DropdownMenuItem key={d.deviceId} onClick={() => chooseMic(d.deviceId)}>
+                    {selectedMic === d.deviceId ? "✓ " : ""}{d.label || "Microphone"}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Camera</DropdownMenuLabel>
+                {devices.cams.length === 0 && <DropdownMenuItem disabled>None</DropdownMenuItem>}
+                {devices.cams.map((d) => (
+                  <DropdownMenuItem key={d.deviceId} onClick={() => chooseCam(d.deviceId)}>
+                    {selectedCam === d.deviceId ? "✓ " : ""}{d.label || "Camera"}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Speaker</DropdownMenuLabel>
+                {devices.spks.length === 0 && <DropdownMenuItem disabled>Default</DropdownMenuItem>}
+                {devices.spks.map((d) => (
+                  <DropdownMenuItem key={d.deviceId} onClick={() => chooseSpk(d.deviceId)}>
+                    {selectedSpk === d.deviceId ? "✓ " : ""}{d.label || "Speaker"}
+                  </DropdownMenuItem>
+                ))}
+                {isVideo && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={toggleFullscreen}>Toggle fullscreen</DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
 
       <Dialog open={showRating} onOpenChange={(o) => { if (!o) { setShowRating(false); onClose(); } }}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>How was your call?</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>How was your call?</DialogTitle></DialogHeader>
           <div className="flex justify-center gap-1 py-2">
             {[1, 2, 3, 4, 5].map((n) => (
               <button key={n} onClick={() => setStars(n)} aria-label={`${n} stars`}>

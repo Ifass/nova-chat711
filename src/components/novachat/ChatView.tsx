@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, ImagePlus, X, Pin, Copy, Reply } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCheck, Smile, MoreVertical, Trash2, Phone, PhoneOff, PhoneMissed, PhoneIncoming, PhoneOutgoing, Video, ImagePlus, X, Pin, Copy, Reply } from "lucide-react";
 import { SelectableMsg } from "@/components/novachat/SelectableMsg";
 import { useServerFn } from "@tanstack/react-start";
 import { startCall } from "@/lib/call.functions";
@@ -34,6 +34,7 @@ type CallLogPayload = {
   caller_id: string;
   callee_id: string;
   call_id: string;
+  call_type?: "voice" | "video";
 };
 function parseCallLog(content: string): CallLogPayload | null {
   if (!content.startsWith(CALL_MSG_PREFIX)) return null;
@@ -55,7 +56,7 @@ function previewOf(m: MessageRow): string {
     return m.caption ? `📷 ${m.caption}` : `📷 Photo${n > 1 ? ` (${n})` : ""}`;
   }
   const call = parseCallLog(m.content);
-  if (call) return "📞 Voice call";
+  if (call) return call.call_type === "video" ? "🎥 Video call" : "📞 Voice call";
   return m.content || "";
 }
 
@@ -678,13 +679,28 @@ export function ChatView({
           </div>
         </div>
         <Button
+          variant="ghost" size="icon" aria-label={`Video call ${peer.display_name}`} disabled={calling}
+          onClick={async () => {
+            setCalling(true);
+            try {
+              const r = await startCallFn({ data: { calleeId: peer.id, callType: "video" } });
+              openVoiceCall({
+                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing", callType: "video",
+              });
+            } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
+            finally { setCalling(false); }
+          }}
+        >
+          <Video className="size-5" />
+        </Button>
+        <Button
           variant="ghost" size="icon" aria-label={`Call ${peer.display_name}`} disabled={calling}
           onClick={async () => {
             setCalling(true);
             try {
-              const r = await startCallFn({ data: { calleeId: peer.id } });
+              const r = await startCallFn({ data: { calleeId: peer.id, callType: "voice" } });
               openVoiceCall({
-                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing",
+                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing", callType: "voice",
               });
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Couldn't start call");
@@ -749,13 +765,15 @@ export function ChatView({
               const declined = call.status === "declined";
               const noAnswer = call.status === "missed";
               let label: string;
-              let Icon = PhoneOff;
+              const isVideo = call.call_type === "video";
+              const kindLabel = isVideo ? "video" : "voice";
+              let Icon = isVideo ? Video : PhoneOff;
               let tone = "text-muted-foreground";
               if (call.duration > 0) {
-                label = `${iAmCaller ? "Outgoing" : "Incoming"} voice call · ${fmtDuration(call.duration)}`;
-                Icon = iAmCaller ? PhoneOutgoing : PhoneIncoming;
+                label = `${iAmCaller ? "Outgoing" : "Incoming"} ${kindLabel} call · ${fmtDuration(call.duration)}`;
+                Icon = isVideo ? Video : (iAmCaller ? PhoneOutgoing : PhoneIncoming);
               } else if (noAnswer) {
-                label = iAmCaller ? "No answer" : "Missed voice call";
+                label = iAmCaller ? "No answer" : `Missed ${kindLabel} call`;
                 Icon = PhoneMissed;
                 tone = iAmCaller ? "text-muted-foreground" : "text-destructive";
               } else if (declined) {
@@ -768,10 +786,10 @@ export function ChatView({
                 const { error } = await supabase.from("messages").delete().eq("id", m.id);
                 if (error) toast.error(error.message);
               };
-              const callBack = async () => {
+              const callBack = async (type: "voice" | "video") => {
                 try {
-                  const r = await startCallFn({ data: { calleeId: peer.id } });
-                  openVoiceCall({ callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing" });
+                  const r = await startCallFn({ data: { calleeId: peer.id, callType: type } });
+                  openVoiceCall({ callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing", callType: type });
                 } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
               };
               return (
@@ -796,8 +814,11 @@ export function ChatView({
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={callBack}>
-                            <Phone className="size-4 mr-2" /> Call back
+                          <DropdownMenuItem onClick={() => callBack("voice")}>
+                            <Phone className="size-4 mr-2" /> Voice call back
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => callBack("video")}>
+                            <Video className="size-4 mr-2" /> Video call back
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={deleteMessage}>
                             <Trash2 className="size-4 mr-2" /> Delete log
