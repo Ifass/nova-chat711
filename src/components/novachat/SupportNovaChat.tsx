@@ -246,11 +246,11 @@ export function SupportNovaChat({ onBack }: { onBack?: () => void } = {}) {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6">
+        <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6 animate-fade-in">
           <section aria-labelledby="support-nova-heading" className="animate-fade-in">
             <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 md:p-6 shadow-sm">
               <p id="support-nova-heading" className="text-sm text-muted-foreground leading-relaxed mb-5">
-                Your support helps pay for AI costs, servers, infrastructure and future updates.
+                Every contribution helps keep Nova Chat growing by supporting AI costs, servers, infrastructure, maintenance, and future updates.
               </p>
 
               <div
