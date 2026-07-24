@@ -183,6 +183,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     for (const p of room.remoteParticipants.values()) {
       const cam = p.getTrackPublication(Track.Source.Camera) ?? p.getTrackPublication(Track.Source.ScreenShare);
       if (cam?.track && cam.track.kind === Track.Kind.Video && !cam.isMuted) {
+        setRemoteHasVideo(true);
         console.log("[Call] Video element attached", {
           target: "remote",
           participant: p.identity,
