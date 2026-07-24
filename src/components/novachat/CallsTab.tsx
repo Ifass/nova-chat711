@@ -15,6 +15,7 @@ type CallRow = {
   created_at: string;
   started_at: string | null;
   ended_at: string | null;
+  call_type: string | null;
 };
 
 type CallEntry = {
