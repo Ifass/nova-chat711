@@ -41,12 +41,12 @@ type SupportItem = {
 };
 
 const ITEMS: SupportItem[] = [
-  { id: "coffee", emoji: "☕", name: "Coffee", amount: 100 },
-  { id: "fries", emoji: "🍟", name: "Fries", amount: 150 },
-  { id: "burger", emoji: "🍔", name: "Burger", amount: 250 },
-  { id: "pizza", emoji: "🍕", name: "Pizza", amount: 300 },
-  { id: "noodles", emoji: "🍜", name: "Noodles", amount: 350 },
-  { id: "cake", emoji: "🍰", name: "Cake", amount: 500 },
+  { id: "coffee", emoji: "☕", name: "Buy Me a Coffee", amount: 100 },
+  { id: "fries", emoji: "🍟", name: "Buy Me Fries", amount: 150 },
+  { id: "burger", emoji: "🍔", name: "Buy Me a Burger", amount: 250 },
+  { id: "pizza", emoji: "🍕", name: "Buy Me a Pizza", amount: 300 },
+  { id: "noodles", emoji: "🍜", name: "Buy Me Noodles", amount: 350 },
+  { id: "cake", emoji: "🍰", name: "Buy Me Cake", amount: 500 },
   { id: "surprise", emoji: "🎁", name: "Surprise Gift", amount: null },
 ];
 
