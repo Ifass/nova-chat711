@@ -125,6 +125,7 @@ export type Database = {
           message: string | null
           order_id: string
           payment_id: string | null
+          payment_method: string | null
           payment_status: string
           support_item: string
           updated_at: string
@@ -139,6 +140,7 @@ export type Database = {
           message?: string | null
           order_id: string
           payment_id?: string | null
+          payment_method?: string | null
           payment_status?: string
           support_item: string
           updated_at?: string
@@ -153,6 +155,7 @@ export type Database = {
           message?: string | null
           order_id?: string
           payment_id?: string | null
+          payment_method?: string | null
           payment_status?: string
           support_item?: string
           updated_at?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS payment_method TEXT;

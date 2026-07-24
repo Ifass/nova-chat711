@@ -34,7 +34,8 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
-type AiMode = "nova" | "openchat";
+type AiMode = "nova" | "openchat" | "support";
+
 
 function AppShell() {
   const navigate = useNavigate();
@@ -181,9 +182,12 @@ function AppShell() {
         {tab === "ai" ? (
           aiMode === "openchat" ? (
             <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          ) : aiMode === "support" ? (
+            <SupportNovaChat onBack={() => setMobileChatOpen(false)} />
           ) : (
             <AITab onBack={() => setMobileChatOpen(false)} />
           )
+
         ) : activePeer ? (
           <ChatView
             me={profile}
@@ -265,14 +269,31 @@ function AISidePanel({
         </div>
       </button>
 
+      <button
+        onClick={() => onSelect("support")}
+        className={cn(
+          "w-full text-left p-4 rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-500/5 hover:from-blue-500/20 transition-colors border",
+          activeMode === "support" ? "border-blue-500/50 ring-1 ring-blue-500/30" : "border-blue-500/20",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className="size-12 rounded-xl bg-blue-600 text-white grid place-items-center text-2xl">
+            <span aria-hidden>❤️</span>
+          </div>
+          <div>
+            <div className="font-semibold">Support Us</div>
+            <div className="text-xs text-muted-foreground">Support Nova Chat</div>
+          </div>
+        </div>
+      </button>
+
       <p className="text-xs text-muted-foreground mt-2 px-1">
         Your personal AI assistants. Chats are private to your account.
       </p>
-
-      <SupportNovaChat />
     </div>
   );
 }
+
 
 // avoid unused import warnings
 void Menu; void X;
