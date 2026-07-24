@@ -34,6 +34,7 @@ type CallLogPayload = {
   caller_id: string;
   callee_id: string;
   call_id: string;
+  call_type?: "voice" | "video";
 };
 function parseCallLog(content: string): CallLogPayload | null {
   if (!content.startsWith(CALL_MSG_PREFIX)) return null;
