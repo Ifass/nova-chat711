@@ -152,7 +152,9 @@ export function CallsTab({
                         <meta.Icon className={cn("size-3.5", meta.tone)} />
                         <span>{meta.label}</span>
                         <span>·</span>
-                        <span>Voice</span>
+                        {e.call.call_type === "video"
+                          ? <span className="inline-flex items-center gap-1"><Video className="size-3.5" />Video</span>
+                          : <span className="inline-flex items-center gap-1"><Phone className="size-3.5" />Voice</span>}
                         <span>·</span>
                         <span>{formatDuration(e.call.duration_seconds)}</span>
                       </div>
