@@ -80,14 +80,14 @@ function AppShell() {
     <div className="h-screen flex bg-background overflow-hidden">
       <h1 className="sr-only">NovaChat — your messaging dashboard</h1>
       {/* Rail (desktop) */}
-      <nav className="hidden md:flex w-16 lg:w-20 flex-col items-center py-4 bg-sidebar border-r border-sidebar-border" aria-label="Primary">
+      <nav className="hidden md:flex w-16 lg:w-20 xl:w-24 flex-col items-center py-4 bg-sidebar border-r border-sidebar-border" aria-label="Primary">
         <div className="flex flex-col gap-2 flex-1 justify-start">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setActivePeer(null); setMobileChatOpen(false); }}
               className={cn(
-                "size-12 rounded-xl grid place-items-center transition-colors",
+                "size-12 xl:size-14 rounded-xl grid place-items-center transition-colors",
                 tab === t.id
                   ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
@@ -95,18 +95,18 @@ function AppShell() {
               aria-label={t.label}
               title={t.label}
             >
-              <t.icon className="size-5" />
+              <t.icon className="size-5 xl:size-6" />
             </button>
           ))}
         </div>
-        <button onClick={handleSignOut} className="size-12 rounded-xl grid place-items-center text-muted-foreground hover:text-destructive hover:bg-sidebar-accent" title="Sign out" aria-label="Sign out">
-          <LogOut className="size-5" />
+        <button onClick={handleSignOut} className="size-12 xl:size-14 rounded-xl grid place-items-center text-muted-foreground hover:text-destructive hover:bg-sidebar-accent" title="Sign out" aria-label="Sign out">
+          <LogOut className="size-5 xl:size-6" />
         </button>
       </nav>
 
       {/* List column */}
       <aside className={cn(
-        "w-full md:w-80 lg:w-96 flex-col border-r border-border bg-card",
+        "w-full md:w-80 lg:w-[400px] xl:w-[440px] 2xl:w-[480px] md:max-w-[480px] flex-col border-r border-border bg-card",
         mobileChatOpen && (activePeer || tab === "ai") ? "hidden md:flex" : "flex"
       )}>
         <header className="h-16 px-4 flex items-center justify-between border-b border-border">
