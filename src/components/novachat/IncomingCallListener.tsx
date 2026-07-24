@@ -13,6 +13,7 @@ type ActiveCall = {
   peer: ProfileLite;
   role: "caller" | "callee";
   initialStatus: "ringing" | "accepted";
+  callType?: "voice" | "video";
 };
 
 let activeOpener: ((c: ActiveCall) => void) | null = null;
