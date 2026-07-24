@@ -181,7 +181,33 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
   const cancelledRef = useRef(false);
 
   const connect = async (tk: string, initialVideo: boolean) => {
-    if (cancelledRef.current) return;
+    console.log("[Call] connect() start", { callId, role, mode, initialVideo, url: url?.slice(0, 40), tokenLen: tk?.length });
+    if (cancelledRef.current) { console.warn("[Call] connect aborted: cancelled"); return; }
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      console.error("[Call] not a secure context — getUserMedia will be blocked");
+      toast.error("Calls require HTTPS");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      console.error("[Call] navigator.mediaDevices.getUserMedia unavailable");
+      toast.error("This browser can't access mic/camera");
+      return;
+    }
+    // Pre-flight: request permission BEFORE joining the room so the prompt is
+    // never gated by the LiveKit handshake, and we get a clear error if denied.
+    try {
+      console.log("[Call] getUserMedia pre-flight", { video: initialVideo, audio: true });
+      const pre = await navigator.mediaDevices.getUserMedia({ audio: true, video: initialVideo });
+      console.log("[Call] getUserMedia OK", { tracks: pre.getTracks().map((t) => `${t.kind}:${t.label}`) });
+      pre.getTracks().forEach((t) => t.stop());
+    } catch (e) {
+      console.error("[Call] getUserMedia FAILED", e);
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      toast.error(`Mic/Camera permission needed — ${msg}`);
+      onClose();
+      return;
+    }
+
     if (roomRef.current) { try { await roomRef.current.disconnect(); } catch { /* ignore */ } roomRef.current = null; }
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
@@ -192,6 +218,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     };
 
     room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+      console.log("[Call] TrackSubscribed", track.kind, track.source);
       if (track.kind === Track.Kind.Audio && audioElRef.current) track.attach(audioElRef.current);
       if (track.kind === Track.Kind.Video) attachRemoteVideo();
     });
@@ -199,9 +226,10 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       try { track.detach(); } catch { /* ignore */ }
       if (track.kind === Track.Kind.Video) attachRemoteVideo();
     });
-    room.on(RoomEvent.ParticipantConnected, () => markConnectedIfPeerPresent());
-    room.on(RoomEvent.ParticipantDisconnected, () => endCall("remote_left"));
+    room.on(RoomEvent.ParticipantConnected, (p) => { console.log("[Call] ParticipantConnected", p.identity); markConnectedIfPeerPresent(); });
+    room.on(RoomEvent.ParticipantDisconnected, (p) => { console.log("[Call] ParticipantDisconnected", p.identity); endCall("remote_left"); });
     room.on(RoomEvent.ConnectionStateChanged, (s) => {
+      console.log("[Call] ConnectionStateChanged", s);
       if (s === ConnectionState.Connected) markConnectedIfPeerPresent();
       if (s === ConnectionState.Disconnected) setStatus((cur) => cur === "ended" ? cur : "ended");
     });
@@ -209,23 +237,35 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       if (p?.identity === room.localParticipant.identity) setQuality(q);
     });
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
+      console.log("[Call] LocalTrackPublished", pub.source, pub.kind);
       if (pub.source === Track.Source.Camera) attachLocalVideo();
     });
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
       if (pub.source === Track.Source.Camera) attachLocalVideo();
     });
+    room.on(RoomEvent.MediaDevicesError, (e) => { console.error("[Call] MediaDevicesError", e); });
 
     try {
+      console.log("[Call] room.connect →", url);
       await room.connect(url, tk);
+      console.log("[Call] room.connect OK; enabling mic…");
       if (cancelledRef.current) { await room.disconnect(); return; }
       await room.localParticipant.setMicrophoneEnabled(true);
+      console.log("[Call] mic enabled");
       if (initialVideo) {
-        try { await room.localParticipant.setCameraEnabled(true); setCamOn(true); }
-        catch { setCamOn(false); toast.error("Camera unavailable"); }
+        try {
+          console.log("[Call] enabling camera…");
+          await room.localParticipant.setCameraEnabled(true);
+          setCamOn(true);
+          console.log("[Call] camera enabled");
+        } catch (camErr) {
+          console.error("[Call] camera enable failed", camErr);
+          setCamOn(false);
+          toast.error(camErr instanceof Error ? `Camera: ${camErr.message}` : "Camera unavailable");
+        }
       }
       attachLocalVideo();
       attachRemoteVideo();
-      // Enumerate devices once we have permission
       try {
         const list = await navigator.mediaDevices.enumerateDevices();
         setDevices({
@@ -236,6 +276,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       } catch { /* ignore */ }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("[Call] room.connect failed", e);
       if (cancelledRef.current || /client initiated disconnect/i.test(msg)) return;
       throw e;
     }
@@ -244,11 +285,12 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
   // Caller connects immediately; callee connects after accepting
   useEffect(() => {
     cancelledRef.current = false;
+    console.log("[Call] mount", { callId, role, initialStatus, callType, mode });
     if (role === "caller") {
       setStatus("connecting");
-      connect(token, mode === "video").catch((e) => { toast.error(e.message); onClose(); });
+      connect(token, mode === "video").catch((e) => { console.error("[Call] caller connect error", e); toast.error(e.message); onClose(); });
     } else if (initialStatus === "accepted") {
-      connect(token, mode === "video").catch((e) => { toast.error(e.message); onClose(); });
+      connect(token, mode === "video").catch((e) => { console.error("[Call] callee connect error", e); toast.error(e.message); onClose(); });
     }
     return () => {
       cancelledRef.current = true;
