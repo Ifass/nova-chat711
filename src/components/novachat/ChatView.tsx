@@ -679,13 +679,28 @@ export function ChatView({
           </div>
         </div>
         <Button
+          variant="ghost" size="icon" aria-label={`Video call ${peer.display_name}`} disabled={calling}
+          onClick={async () => {
+            setCalling(true);
+            try {
+              const r = await startCallFn({ data: { calleeId: peer.id, callType: "video" } });
+              openVoiceCall({
+                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing", callType: "video",
+              });
+            } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't start call"); }
+            finally { setCalling(false); }
+          }}
+        >
+          <Video className="size-5" />
+        </Button>
+        <Button
           variant="ghost" size="icon" aria-label={`Call ${peer.display_name}`} disabled={calling}
           onClick={async () => {
             setCalling(true);
             try {
-              const r = await startCallFn({ data: { calleeId: peer.id } });
+              const r = await startCallFn({ data: { calleeId: peer.id, callType: "voice" } });
               openVoiceCall({
-                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing",
+                callId: r.callId, token: r.token, url: r.url, peer, role: "caller", initialStatus: "ringing", callType: "voice",
               });
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Couldn't start call");
