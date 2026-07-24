@@ -79,6 +79,7 @@ export function IncomingCallListener({ meId }: { meId: string }) {
       peer={active.peer}
       role={active.role}
       initialStatus={active.initialStatus}
+      callType={active.callType ?? "voice"}
       onClose={() => setActive(null)}
     />
   );
