@@ -15,9 +15,10 @@ async function mintToken(identity: string, name: string, room: string) {
 
 export const startCall = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { calleeId: string }) => {
+  .inputValidator((d: { calleeId: string; callType?: "voice" | "video" }) => {
     if (!d?.calleeId) throw new Error("calleeId required");
-    return { calleeId: d.calleeId };
+    const callType = d.callType === "video" ? "video" : "voice";
+    return { calleeId: d.calleeId, callType };
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -26,13 +27,33 @@ export const startCall = createServerFn({ method: "POST" })
     const roomName = `nova-${crypto.randomUUID()}`;
     const { data: call, error } = await supabase
       .from("calls")
-      .insert({ caller_id: userId, callee_id: data.calleeId, room_name: roomName, status: "ringing" })
-      .select("id, room_name").single();
+      .insert({ caller_id: userId, callee_id: data.calleeId, room_name: roomName, status: "ringing", call_type: data.callType })
+      .select("id, room_name, call_type").single();
     if (error || !call) throw new Error(error?.message ?? "Failed to start call");
 
     const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
     const tok = await mintToken(userId, prof?.display_name ?? "User", call.room_name);
-    return { callId: call.id, roomName: call.room_name, token: tok.token, url: tok.url };
+    return { callId: call.id, roomName: call.room_name, token: tok.token, url: tok.url, callType: call.call_type as "voice" | "video" };
+  });
+
+export const setCallType = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { callId: string; callType: "voice" | "video" }) => {
+    if (!d?.callId) throw new Error("callId required");
+    if (d.callType !== "voice" && d.callType !== "video") throw new Error("invalid callType");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: call } = await supabase.from("calls")
+      .select("id, caller_id, callee_id").eq("id", data.callId).maybeSingle();
+    if (!call) throw new Error("Call not found");
+    if (call.caller_id !== userId && call.callee_id !== userId) throw new Error("Not a participant");
+    const { error } = await supabase.from("calls")
+      .update({ call_type: data.callType, updated_at: new Date().toISOString() })
+      .eq("id", data.callId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const getCallToken = createServerFn({ method: "POST" })
