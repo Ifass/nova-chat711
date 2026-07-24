@@ -61,7 +61,7 @@ export function CallsTab({
   const load = async () => {
     const { data: calls } = await supabase
       .from("calls")
-      .select("id, caller_id, callee_id, status, duration_seconds, created_at, started_at, ended_at")
+      .select("id, caller_id, callee_id, status, duration_seconds, created_at, started_at, ended_at, call_type")
       .or(`caller_id.eq.${me.id},callee_id.eq.${me.id}`)
       .order("created_at", { ascending: false })
       .limit(200);
