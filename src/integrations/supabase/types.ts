@@ -75,6 +75,7 @@ export type Database = {
       }
       calls: {
         Row: {
+          call_type: string
           callee_id: string
           caller_id: string
           created_at: string
@@ -88,6 +89,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          call_type?: string
           callee_id: string
           caller_id: string
           created_at?: string
@@ -101,6 +103,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          call_type?: string
           callee_id?: string
           caller_id?: string
           created_at?: string
