@@ -623,10 +623,9 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
         <>
           {/* Remote full-screen video */}
           <div className="absolute inset-0">
-            {remoteHasVideo ? (
-              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-900 to-black">
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+            {!remoteHasVideo && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-900 to-black">
                 <Avatar className="size-28 ring-4 ring-white/10">
                   <AvatarImage src={peer.avatar_url ?? undefined} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{initials(peer.display_name)}</AvatarFallback>
@@ -661,10 +660,9 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
             style={pipPos ? { left: pipPos.x, top: pipPos.y, right: "auto", bottom: "auto" } : undefined}
             className="absolute right-4 bottom-32 sm:bottom-28 w-28 h-40 sm:w-36 sm:h-52 rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/20 bg-black/60 cursor-grab active:cursor-grabbing touch-none select-none"
           >
-            {camOn ? (
-              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-            ) : (
-              <div className="w-full h-full grid place-items-center bg-zinc-900 text-white/60 text-xs">
+            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+            {!camOn && (
+              <div className="absolute inset-0 grid place-items-center bg-zinc-900 text-white/60 text-xs">
                 <VideoOff className="size-6" />
               </div>
             )}
