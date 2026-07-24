@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Room, RoomEvent, ConnectionState, Track, ConnectionQuality,
-  type RemoteTrack, type RemoteParticipant, type LocalTrackPublication,
+  type RemoteTrack, type RemoteParticipant, type LocalTrackPublication, type RemoteTrackPublication,
 } from "livekit-client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -160,22 +160,83 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     };
   }, [status, role]);
 
-  const attachRemoteVideo = useCallback(() => {
+  const attachRemoteVideo = useCallback((reason = "manual") => {
     const room = roomRef.current;
-    if (!room || !remoteVideoRef.current) return;
+    const el = remoteVideoRef.current;
+    console.log("[Call] attachRemoteVideo()", {
+      reason,
+      roomReady: !!room,
+      elementReady: !!el,
+      remoteParticipants: room ? Array.from(room.remoteParticipants.values()).map((p) => ({
+        identity: p.identity,
+        tracks: Array.from(p.trackPublications.values()).map((pub) => ({
+          sid: pub.trackSid,
+          source: pub.source,
+          kind: pub.kind,
+          muted: pub.isMuted,
+          subscribed: pub.isSubscribed,
+          hasTrack: !!pub.track,
+        })),
+      })) : [],
+    });
+    if (!room || !el) return;
     for (const p of room.remoteParticipants.values()) {
       const cam = p.getTrackPublication(Track.Source.Camera) ?? p.getTrackPublication(Track.Source.ScreenShare);
-      if (cam?.track) { cam.track.attach(remoteVideoRef.current); setRemoteHasVideo(true); return; }
+      if (cam?.track && cam.track.kind === Track.Kind.Video && !cam.isMuted) {
+        console.log("[Call] Video element attached", {
+          target: "remote",
+          participant: p.identity,
+          source: cam.source,
+          sid: cam.trackSid,
+          mediaStreamTrackState: cam.track.mediaStreamTrack.readyState,
+          enabled: cam.track.mediaStreamTrack.enabled,
+        });
+        cam.track.attach(el);
+        void el.play().catch((e) => console.warn("[Call] remote video play() blocked", e));
+        setRemoteHasVideo(true);
+        return;
+      }
     }
+    el.srcObject = null;
     setRemoteHasVideo(false);
   }, []);
 
-  const attachLocalVideo = useCallback(() => {
+  const attachLocalVideo = useCallback((reason = "manual") => {
     const room = roomRef.current;
-    if (!room || !localVideoRef.current) return;
-    const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+    const el = localVideoRef.current;
+    const pub = room?.localParticipant.getTrackPublication(Track.Source.Camera);
+    const hasLiveCamera = !!pub?.track && !pub.isMuted && pub.track.mediaStreamTrack.readyState === "live";
+    console.log("[Call] attachLocalVideo()", {
+      reason,
+      roomReady: !!room,
+      elementReady: !!el,
+      publication: pub ? {
+        sid: pub.trackSid,
+        source: pub.source,
+        kind: pub.kind,
+        muted: pub.isMuted,
+        hasTrack: !!pub.track,
+        mediaStreamTrackState: pub.track?.mediaStreamTrack.readyState,
+        enabled: pub.track?.mediaStreamTrack.enabled,
+      } : null,
+      hasLiveCamera,
+    });
+    setCamOn(hasLiveCamera);
+    if (!room || !el) return;
     const track = pub?.track;
-    if (track) { track.attach(localVideoRef.current); } else { localVideoRef.current.srcObject = null; }
+    if (track && !pub.isMuted) {
+      console.log("[Call] Video element attached", {
+        target: "local",
+        source: pub.source,
+        sid: pub.trackSid,
+        mediaStreamTrackState: track.mediaStreamTrack.readyState,
+        enabled: track.mediaStreamTrack.enabled,
+      });
+      track.attach(el);
+      void el.play().catch((e) => console.warn("[Call] local video play() blocked", e));
+    } else {
+      el.srcObject = null;
+    }
   }, []);
 
   const cancelledRef = useRef(false);
@@ -198,7 +259,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     try {
       console.log("[Call] getUserMedia pre-flight", { video: initialVideo, audio: true });
       const pre = await navigator.mediaDevices.getUserMedia({ audio: true, video: initialVideo });
-      console.log("[Call] getUserMedia OK", { tracks: pre.getTracks().map((t) => `${t.kind}:${t.label}`) });
+      console.log("[Call] Camera permission granted", { tracks: pre.getTracks().map((t) => `${t.kind}:${t.label}:${t.readyState}`) });
       pre.getTracks().forEach((t) => t.stop());
     } catch (e) {
       console.error("[Call] getUserMedia FAILED", e);
@@ -217,16 +278,47 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       if (room.remoteParticipants.size > 0) setStatus("connected");
     };
 
-    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
-      console.log("[Call] TrackSubscribed", track.kind, track.source);
+    room.on(RoomEvent.TrackPublished, (pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+      console.log("[Call] Remote video track received", {
+        participant: participant.identity,
+        source: pub.source,
+        kind: pub.kind,
+        sid: pub.trackSid,
+        muted: pub.isMuted,
+        subscribed: pub.isSubscribed,
+        hasTrack: !!pub.track,
+      });
+    });
+    room.on(RoomEvent.TrackSubscriptionFailed, (trackSid, participant) => {
+      console.error("[Call] Remote track subscription failed", { trackSid, participant: participant.identity });
+    });
+    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, pub, participant) => {
+      console.log("[Call] Remote video track subscribed", {
+        participant: participant.identity,
+        kind: track.kind,
+        source: track.source,
+        sid: pub.trackSid,
+        mediaStreamTrackState: track.mediaStreamTrack.readyState,
+        enabled: track.mediaStreamTrack.enabled,
+      });
       if (track.kind === Track.Kind.Audio && audioElRef.current) track.attach(audioElRef.current);
-      if (track.kind === Track.Kind.Video) attachRemoteVideo();
+      if (track.kind === Track.Kind.Video) attachRemoteVideo("track-subscribed");
     });
     room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
       try { track.detach(); } catch { /* ignore */ }
-      if (track.kind === Track.Kind.Video) attachRemoteVideo();
+      if (track.kind === Track.Kind.Video) attachRemoteVideo("track-unsubscribed");
     });
-    room.on(RoomEvent.ParticipantConnected, (p) => { console.log("[Call] ParticipantConnected", p.identity); markConnectedIfPeerPresent(); });
+    room.on(RoomEvent.TrackMuted, (pub, participant) => {
+      console.log("[Call] TrackMuted", { participant: participant.identity, source: pub.source, kind: pub.kind, local: participant.isLocal });
+      if (participant.isLocal && pub.source === Track.Source.Camera) attachLocalVideo("local-track-muted");
+      if (!participant.isLocal && pub.kind === Track.Kind.Video) attachRemoteVideo("remote-track-muted");
+    });
+    room.on(RoomEvent.TrackUnmuted, (pub, participant) => {
+      console.log("[Call] TrackUnmuted", { participant: participant.identity, source: pub.source, kind: pub.kind, local: participant.isLocal });
+      if (participant.isLocal && pub.source === Track.Source.Camera) attachLocalVideo("local-track-unmuted");
+      if (!participant.isLocal && pub.kind === Track.Kind.Video) attachRemoteVideo("remote-track-unmuted");
+    });
+    room.on(RoomEvent.ParticipantConnected, (p) => { console.log("[Call] Remote participant connected", { identity: p.identity }); markConnectedIfPeerPresent(); attachRemoteVideo("participant-connected"); });
     room.on(RoomEvent.ParticipantDisconnected, (p) => { console.log("[Call] ParticipantDisconnected", p.identity); endCall("remote_left"); });
     room.on(RoomEvent.ConnectionStateChanged, (s) => {
       console.log("[Call] ConnectionStateChanged", s);
@@ -237,11 +329,20 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       if (p?.identity === room.localParticipant.identity) setQuality(q);
     });
     room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
-      console.log("[Call] LocalTrackPublished", pub.source, pub.kind);
-      if (pub.source === Track.Source.Camera) attachLocalVideo();
+      console.log("[Call] Video track published", {
+        source: pub.source,
+        kind: pub.kind,
+        sid: pub.trackSid,
+        muted: pub.isMuted,
+        hasTrack: !!pub.track,
+        mediaStreamTrackState: pub.track?.mediaStreamTrack.readyState,
+        enabled: pub.track?.mediaStreamTrack.enabled,
+      });
+      if (pub.source === Track.Source.Camera) attachLocalVideo("local-track-published");
     });
     room.on(RoomEvent.LocalTrackUnpublished, (pub: LocalTrackPublication) => {
-      if (pub.source === Track.Source.Camera) attachLocalVideo();
+      console.log("[Call] LocalTrackUnpublished", { source: pub.source, kind: pub.kind, sid: pub.trackSid });
+      if (pub.source === Track.Source.Camera) attachLocalVideo("local-track-unpublished");
     });
     room.on(RoomEvent.MediaDevicesError, (e) => { console.error("[Call] MediaDevicesError", e); });
 
@@ -251,21 +352,35 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
       console.log("[Call] room.connect OK; enabling mic…");
       if (cancelledRef.current) { await room.disconnect(); return; }
       await room.localParticipant.setMicrophoneEnabled(true);
-      console.log("[Call] mic enabled");
+      console.log("[Call] mic enabled", {
+        isMicrophoneEnabled: room.localParticipant.isMicrophoneEnabled,
+        micPublication: !!room.localParticipant.getTrackPublication(Track.Source.Microphone),
+      });
       if (initialVideo) {
         try {
           console.log("[Call] enabling camera…");
-          await room.localParticipant.setCameraEnabled(true);
-          setCamOn(true);
-          console.log("[Call] camera enabled");
+          const pub = await room.localParticipant.setCameraEnabled(true);
+          console.log("[Call] Local video track created", {
+            returnedPublication: !!pub,
+            sid: pub?.trackSid,
+            source: pub?.source,
+            kind: pub?.kind,
+            muted: pub?.isMuted,
+            hasTrack: !!pub?.track,
+            mediaStreamTrackState: pub?.track?.mediaStreamTrack.readyState,
+            enabled: pub?.track?.mediaStreamTrack.enabled,
+            isCameraEnabled: room.localParticipant.isCameraEnabled,
+          });
+          attachLocalVideo("camera-enabled");
+          console.log("[Call] camera enabled", { isCameraEnabled: room.localParticipant.isCameraEnabled });
         } catch (camErr) {
           console.error("[Call] camera enable failed", camErr);
           setCamOn(false);
           toast.error(camErr instanceof Error ? `Camera: ${camErr.message}` : "Camera unavailable");
         }
       }
-      attachLocalVideo();
-      attachRemoteVideo();
+      attachLocalVideo("post-connect");
+      attachRemoteVideo("post-connect");
       try {
         const list = await navigator.mediaDevices.enumerateDevices();
         setDevices({
@@ -302,7 +417,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
   }, []);
 
   // Re-attach remote video when its element (re)mounts due to mode switch
-  useEffect(() => { if (mode === "video") { attachRemoteVideo(); attachLocalVideo(); } }, [mode, attachRemoteVideo, attachLocalVideo]);
+  useEffect(() => { if (mode === "video") { attachRemoteVideo("mode-effect"); attachLocalVideo("mode-effect"); } }, [mode, camOn, remoteHasVideo, attachRemoteVideo, attachLocalVideo]);
 
   const accept = async () => {
     try {
@@ -345,9 +460,18 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     const r = roomRef.current; if (!r) return;
     const next = !camOn;
     try {
-      await r.localParticipant.setCameraEnabled(next);
-      setCamOn(next);
-      attachLocalVideo();
+      console.log("[Call] toggleCamera", { next, currentLiveKitState: r.localParticipant.isCameraEnabled });
+      const pub = await r.localParticipant.setCameraEnabled(next);
+      console.log("[Call] toggleCamera result", {
+        next,
+        returnedPublication: !!pub,
+        sid: pub?.trackSid,
+        muted: pub?.isMuted,
+        hasTrack: !!pub?.track,
+        mediaStreamTrackState: pub?.track?.mediaStreamTrack.readyState,
+        isCameraEnabled: r.localParticipant.isCameraEnabled,
+      });
+      attachLocalVideo("toggle-camera");
       if (next && mode !== "video") {
         setMode("video");
         try { await changeType({ data: { callId, callType: "video" } }); } catch { /* ignore */ }
@@ -362,14 +486,27 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
     setMode("video");
     try { await changeType({ data: { callId, callType: "video" } }); } catch { /* ignore */ }
     const r = roomRef.current;
-    if (r && !camOn) { try { await r.localParticipant.setCameraEnabled(true); setCamOn(true); attachLocalVideo(); } catch { /* ignore */ } }
+    if (r && !r.localParticipant.isCameraEnabled) {
+      try {
+        console.log("[Call] switchToVideo enabling camera");
+        const pub = await r.localParticipant.setCameraEnabled(true);
+        console.log("[Call] switchToVideo camera result", {
+          returnedPublication: !!pub,
+          sid: pub?.trackSid,
+          muted: pub?.isMuted,
+          hasTrack: !!pub?.track,
+          mediaStreamTrackState: pub?.track?.mediaStreamTrack.readyState,
+          isCameraEnabled: r.localParticipant.isCameraEnabled,
+        });
+        attachLocalVideo("switch-to-video");
+      } catch (e) { console.error("[Call] switchToVideo camera failed", e); }
+    }
   };
 
   const switchToVoice = async () => {
     if (mode === "voice") return;
     const r = roomRef.current;
-    if (r) { try { await r.localParticipant.setCameraEnabled(false); } catch { /* ignore */ } }
-    setCamOn(false);
+    if (r) { try { await r.localParticipant.setCameraEnabled(false); attachLocalVideo("switch-to-voice"); } catch { /* ignore */ } }
     setMode("voice");
     try { await changeType({ data: { callId, callType: "voice" } }); } catch { /* ignore */ }
   };
@@ -407,7 +544,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
 
   const chooseCam = async (id: string) => {
     setSelectedCam(id);
-    try { await roomRef.current?.switchActiveDevice("videoinput", id); attachLocalVideo(); } catch { /* ignore */ }
+    try { await roomRef.current?.switchActiveDevice("videoinput", id); attachLocalVideo("choose-camera"); } catch { /* ignore */ }
   };
   const chooseMic = async (id: string) => {
     setSelectedMic(id);
