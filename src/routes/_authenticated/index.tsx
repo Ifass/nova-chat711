@@ -182,9 +182,12 @@ function AppShell() {
         {tab === "ai" ? (
           aiMode === "openchat" ? (
             <OpenChatTab onBack={() => setMobileChatOpen(false)} />
+          ) : aiMode === "support" ? (
+            <SupportNovaChat onBack={() => setMobileChatOpen(false)} />
           ) : (
             <AITab onBack={() => setMobileChatOpen(false)} />
           )
+
         ) : activePeer ? (
           <ChatView
             me={profile}
