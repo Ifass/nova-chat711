@@ -179,11 +179,22 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
         })),
       })) : [],
     });
-    if (!room || !el) return;
+    if (!room) {
+      setRemoteHasVideo(false);
+      return;
+    }
     for (const p of room.remoteParticipants.values()) {
       const cam = p.getTrackPublication(Track.Source.Camera) ?? p.getTrackPublication(Track.Source.ScreenShare);
       if (cam?.track && cam.track.kind === Track.Kind.Video && !cam.isMuted) {
         setRemoteHasVideo(true);
+        if (!el) {
+          console.log("[Call] Remote video track ready; waiting for <video> element", {
+            participant: p.identity,
+            source: cam.source,
+            sid: cam.trackSid,
+          });
+          return;
+        }
         console.log("[Call] Video element attached", {
           target: "remote",
           participant: p.identity,
@@ -198,7 +209,7 @@ export function VoiceCall({ callId, token, url, peer, role, initialStatus, callT
         return;
       }
     }
-    el.srcObject = null;
+    if (el) el.srcObject = null;
     setRemoteHasVideo(false);
   }, []);
 
