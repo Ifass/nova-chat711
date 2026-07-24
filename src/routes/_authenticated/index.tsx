@@ -34,7 +34,8 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 type TabId = "chats" | "calls" | "friends" | "ai" | "profile";
-type AiMode = "nova" | "openchat";
+type AiMode = "nova" | "openchat" | "support";
+
 
 function AppShell() {
   const navigate = useNavigate();
